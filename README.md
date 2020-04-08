@@ -13,7 +13,14 @@ default the T-SHITS stack uses Traefik and the DNS-01 challenge with CloudFlare
 to get Let's Encrypt certificates. So CloudFlare can be considered an optional
 prerequisite.
 
-For Traefik you need to have `envsubst` [installed (see installation instructions)](https://command-not-found.com/envsubst).
+- For Traefik you need to have `envsubst` [installed (see installation
+  instructions)](https://command-not-found.com/envsubst).
+- For healthchecks you need to have [`curl`](https://command-not-found.com/curl)
+  and [`nc`](https://command-not-found.com/nc) installed.
+- For backups (automatically executed before upgrades)
+  [`restic`](https://command-not-found.com/restic) is being used.
+- [`OpenSSL`](https://command-not-found.com/openssl) is used to encrypt /
+  decrypt ENV files.
 
 ## Installation
 
@@ -21,6 +28,14 @@ To use the services and start spinning up your own T-SHITS services, you just ne
 ```bash
 git clone https://github.com/beevelop/TSHITS.git
 ```
+
+### Configuring an environment (optionally with encryption)
+1. Create a `.bee.pass` file inside the T-SHITS root folder containing the environment's master key / pass (e.g. `Swordfish`).
+2. Create a `.bee.environ` file inside the T-SHITS root folder containing the environment's slug (e.g. `foobar`).
+
+Alternatively you can set both configurations using normal ENVs: `BEEPASS` and
+`ENVIRON`. The encryption uses `openssl aes-256-cbc` to encrypt / decrypt the
+values in the respective `.env.example` file.
 
 ## Usage
 
@@ -43,15 +58,17 @@ DANGERZONE (don't mess with this shit... seriously):
     nuke      Kills the service and removes all traces (image, files, configs,...)
 ```
 
-```
+```bash
 # navigate to the service's subfolder
 cd services/gitlab
 
 # check the .env and .env.example (and other env files)
 # customize them to your needs and please swap the default
 # passwords / secrets / ...
+cp .env.example .env.foobar
 
-./bee up
+# foobar is the name of the environment
+./bee up foobar
 ```
 
 ## Architecture
@@ -61,6 +78,9 @@ environment you want to manage. They contain environment specific
 configurations. One standard ENV (that is being used in the `bee.sh` helper) is
 the `SERVICE_DOMAIN` which is most often used to expose the services via
 Traefik.
+
+T-SHITS stack uses Traefik by default and all services are configured to work
+with Traefik **v1**.
 
 ## Services
 - **Bitwarden**: Self-hosted password manager with native apps for all major operating systems.
@@ -98,6 +118,18 @@ Traefik.
 - Most services use `example.com`, `smtp.example.com`, `bee` (username) or
   `Swordfish` (dummy password) as example values. All tokens / API keys, etc.
   are in the respective format (length / the way they where generated).
+- Backups are stored in the **local** folder `./backup` of each services.
+  Consider it a simple example to recover from a failed upgrade. You backups
+  should usually be synced to a different store / machine to make sure you won't
+  loose the data. Restic has great support for different storage providers.
+- All services are configure to use the restart policy `unless-stopped`. This
+  way containers should stay up if the fail and should start automatically if
+  the host system restarts.
+- Every service has a logging limit (JSON logging) configured. This way your
+  hard drive should not run out of disk space if a service decides to run into a
+  logging rampage.
+- Most of the services already use Docker volumes. They are preferred over local
+  volume mounts.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
