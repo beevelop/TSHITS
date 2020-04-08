@@ -8,12 +8,17 @@ In the light of the [recent announcement](https://www.docker.com/blog/announcing
 > :warning: Some of the Docker-Compose files are over 2 years old and might not work with the most recent versions of the referenced Docker images. Feel free to raise an issue, if you stumble upon something. :v:
 
 ## Prerequisites
-Make sure you have Docker and Docker-Compose installed on your machine.
+Make sure you have Docker and Docker-Compose installed on your machine. By
+default the T-SHITS stack uses Traefik and the DNS-01 challenge with CloudFlare
+to get Let's Encrypt certificates. So CloudFlare can be considered an optional
+prerequisite.
+
+For Traefik you need to have `envsubst` [installed (see installation instructions)](https://command-not-found.com/envsubst).
 
 ## Installation
 
 To use the services and start spinning up your own T-SHITS services, you just need to clone (or fork if you like to) this repo:
-```
+```bash
 git clone https://github.com/beevelop/TSHITS.git
 ```
 
@@ -37,6 +42,25 @@ Helpers:
 DANGERZONE (don't mess with this shit... seriously):
     nuke      Kills the service and removes all traces (image, files, configs,...)
 ```
+
+```
+# navigate to the service's subfolder
+cd services/gitlab
+
+# check the .env and .env.example (and other env files)
+# customize them to your needs and please swap the default
+# passwords / secrets / ...
+
+./bee up
+```
+
+## Architecture
+All services have an individual `.env` file to manage the "general" ENVs (like
+Docker image version, etc.). Additionally there is `.env.example` for every
+environment you want to manage. They contain environment specific
+configurations. One standard ENV (that is being used in the `bee.sh` helper) is
+the `SERVICE_DOMAIN` which is most often used to expose the services via
+Traefik.
 
 ## Services
 - **Bitwarden**: Self-hosted password manager with native apps for all major operating systems.
@@ -65,13 +89,15 @@ DANGERZONE (don't mess with this shit... seriously):
 - **Shields**: Self-hosted version to get beautiful badges for your repositories.
 - **Sonarqube**: Analyze your development sources.
 - **Statping**: Status Page & Monitoring Server
-- **Taiga**: Light-weight / modern alternative to Jira
 - **Traefik**: Load-balancer / reverse-proxy and "certificate manager" in the case of **T-SHITS**.
 - **Tus**: Upload services on steroids.
-- **Watchmen**: Watch out for Watchmen... (unfortunately not longer maintained).
 - **Weblate**: Translate all the things with Weblate.
-- **Weinre**: "Back then" the way to debug e.g. Apache Cordova apps (no longer maintained, if you still use it, have a look at Flutter)
 - **Zabbix**: High-end monitoring for everything with a nice UI.
+
+## Notes
+- Most services use `example.com`, `smtp.example.com`, `bee` (username) or
+  `Swordfish` (dummy password) as example values. All tokens / API keys, etc.
+  are in the respective format (length / the way they where generated).
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
