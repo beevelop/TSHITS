@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+export SERVICE="Traefik"
+export WAIT_TIME=10
+export SKIP_NUKE=true
+
+do_health() {
+  STATUS=0
+  check_file traefik.toml || STATUS=$?
+  check_file ./data/acme/ || STATUS=$?
+  check_curl http://localhost:8080 "HTTP/1.1 401 Unauthorized" || STATUS=$?
+  check_curl http://localhost:80 "HTTP/1.1 404 Not Found" || STATUS=$?
+  check_curl https://localhost:443 "HTTP/1.1 404 Not Found" || STATUS=$?
+  return $STATUS
+}
+
+do_nuke() {
+  echo "📑  Deleting files and folders"
+  rm traefik.toml
+  sudo rm -rf ./data/traefik/acme
+}
+
+do_prepare() {
+  echo "📜  Generating traefik.toml.tpl to traefik.toml"
+  envsubst < traefik.toml.tpl > traefik.toml
+
+  echo "🗂  Preparing folders (acme)"
+  sudo mkdir -p ./data/traefik/acme/
+}
+
+. ../../meta/bee.sh "${@}"

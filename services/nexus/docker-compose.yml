@@ -1,0 +1,23 @@
+version: "3"
+services:
+  nexus:
+    container_name: nexus
+    image: clearent/nexus:${NEXUS_VERSION}
+    networks: [ traefik ]
+    volumes:
+      - "./data/nexus/:/nexus-data"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=8081"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  traefik:
+    external:
+      name: traefik_default

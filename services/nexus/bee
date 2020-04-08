@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+export SERVICE="Nexus"
+export WAIT_TIME=60
+
+do_health() {
+  STATUS=0
+  check_traefik ${SERVICE_DOMAIN} "HTTP/1.1 200 OK" || STATUS=$?
+  return $STATUS
+}
+
+#do_nuke() {
+#  you_mad
+#  echo "📑  Deleting files and folders"
+#  sudo rm -rf ./data/nexus/data
+#}
+
+# do_prepare() {
+#   echo "🗂  Preparing folders (data)"
+#   sudo mkdir -p ./data/nexus/data
+# }
+
+. ../../meta/bee.sh "${@}"

@@ -1,0 +1,33 @@
+version: "3"
+services:
+  registry:
+    image: registry:2
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+      REGISTRY_STORAGE_DELETE_ENABLED: true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=5000"
+    volumes:
+      - "./data/reg:/var/lib/registry"
+      - "./data/certs:/certs"
+      - "./auth:/auth"
+    restart: unless-stopped
+    logging:
+        driver: "json-file"
+        options:
+          max-size: "500k"
+          max-file: "50"
+
+networks:
+  rundeck:
+  traefik:
+    external:
+      name: traefik_default
+
+
+
+

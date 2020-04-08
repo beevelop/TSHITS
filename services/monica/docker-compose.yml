@@ -1,0 +1,47 @@
+version: "3"
+services:
+  monica:
+    image: monicahq/monicahq:v${MONICA_VERSION}
+    env_file: monica.env
+    environment:
+      APP_URL: https://${SERVICE_DOMAIN}
+      DB_HOST: ${DB_HOST}
+      DB_DATABASE: ${DB_NAME}
+      DB_USERNAME: ${DB_USER}
+      DB_PASSWORD: ${DB_PASS}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=monica"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+    links: [mysql]
+    depends_on: [mysql]
+    networks: [traefik,monica]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+  
+  mysql:
+    image: mysql:${MYSQL_TAG}
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+    volumes: ["./data/mysql/:/var/lib/mysql"]
+    networks: [monica]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  monica:
+  traefik:
+    external:
+      name: traefik_default

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+export SERVICE="Confluence"
+export WAIT_TIME=45
+
+do_health() {
+  STATUS=0
+  check_traefik ${SERVICE_DOMAIN} "HTTP/1.1 302 Found" || STATUS=$?
+  return $STATUS
+}
+
+do_prepare() {
+  echo "🗂  Preparing folders (data/confluence)"
+  sudo mkdir -p ./data/confluence/
+  sudo chmod -R 700 ./data/confluence
+  sudo chown daemon:daemon ./data/confluence
+}
+
+. ../../meta/bee.sh "${@}"

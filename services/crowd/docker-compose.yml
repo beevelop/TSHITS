@@ -1,0 +1,57 @@
+version: "3"
+services:
+  crowd:
+    image: blacklabelops/crowd:${CROWD_VERSION}
+    container_name: crowd
+    networks: [ crowd, traefik ]
+    volumes: [ "crowd_data:/var/atlassian/crowd/" ]
+    depends_on: [ postgresql ]
+    environment:
+      - "CROWD_PROXY_NAME=${SERVICE_DOMAIN}"
+      - "CROWD_PROXY_PORT=443"
+      - "CROWD_PROXY_SCHEME=https"
+      - "CROWD_URL=https://${SERVICE_DOMAIN}/crowd"
+      - "LOGIN_BASE_URL=https://${SERVICE_DOMAIN}"
+      - "SPLASH_CONTEXT=ROOT"
+      - "CROWD_CONTEXT=crowd"
+      - "CROWDID_CONTEXT=openidserver"
+      - "OPENID_CLIENT_CONTEXT=openidclient"
+      - "DEMO_CONTEXT=demo"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.port=8095"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  postgresql:
+    image: postgres:${POSTGRES_TAG}
+    networks: [crowd]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes: [ "crowd_postgres:/var/lib/postgresql/data" ]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+volumes:
+  crowd_data:
+    external: false
+  crowd_postgres:
+    external: false
+
+networks:
+  crowd:
+  traefik:
+    external:
+      name: traefik_default

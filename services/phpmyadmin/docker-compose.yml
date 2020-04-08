@@ -1,0 +1,22 @@
+version: "3"
+services:
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:${PMA_VERSION}
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_ABSOLUTE_URI: https://${SERVICE_DOMAIN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+    networks: [traefik]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  traefik:
+    external:
+      name: traefik_default

@@ -1,0 +1,53 @@
+version: "3"
+services:
+  confluence:
+    image: blacklabelops/confluence:${CONFLUENCE_VERSION}
+    hostname: confluence
+    environment:
+      - 'CATALINA_OPTS= -Xms256m -Xmx1g'
+      - 'CONFLUENCE_PROXY_NAME=${SERVICE_DOMAIN}'
+      - 'CONFLUENCE_PROXY_PORT=443'
+      - 'CONFLUENCE_PROXY_SCHEME=https'
+      - 'SETENV_JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
+      - 'SETENV_JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.port=8090"
+    ports: [ "8091:8091" ]
+    links:
+      - postgresql
+    volumes: [ "confluencedata:/var/atlassian/confluence/" ]
+    networks: [traefik,confluence]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  postgresql:
+    image: postgres:${POSTGRES_TAG}
+    networks: [confluence]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes: [ "./data/postgres/:/var/lib/postgresql/data" ]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+volumes:
+  confluencedata:
+    external: false
+
+networks:
+  confluence:
+  traefik:
+    external:
+      name: traefik_default

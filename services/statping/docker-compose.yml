@@ -1,0 +1,48 @@
+version: "3"
+services:
+  statping:
+    image: hunterlong/statping
+    restart: unless-stopped
+    networks: [ traefik, statping ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=statping"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=8080"
+    depends_on:
+      - postgres_statping
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    volumes:
+      - ./data/app:/app
+    environment:
+      DB_CONN: postgres
+      DB_HOST: postgres_statping
+      DB_USER: statping
+      DB_PASS: Swordfish
+      DB_DATABASE: statping
+
+  postgres_statping:
+    image: postgres
+    restart: unless-stopped
+    networks: [ statping ]
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: Swordfish
+      POSTGRES_USER: statping
+      POSTGRES_DB: statping
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  statping:
+  traefik:
+    external:
+      name: traefik_default

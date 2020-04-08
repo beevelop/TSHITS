@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+export SERVICE="MySQL"
+export WAIT_TIME=5
+
+do_health() {
+  STATUS=0
+  check_tcp 127.0.0.1 3306 || STATUS=$?
+  return $STATUS
+}
+
+. ../../meta/bee.sh "${@}"

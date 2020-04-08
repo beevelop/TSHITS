@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+export SERVICE="OpenVPN"
+export WAIT_TIME=5
+
+do_prepare() {
+  if [[ -e ./data/openvpn/ ]]; then
+    echo "OpenVPN folder does exist... skipping initialization"
+  else
+    docker-compose run --rm openvpn ovpn_genconfig -u udp://${SERVICE_DOMAIN}
+    echo "\n" | docker-compose run --rm openvpn ovpn_initpki nopass
+  fi
+}
+
+do_health() {
+  STATUS=0
+  check_udp localhost 53 || STATUS=$?
+  check_tcp localhost 21 || STATUS=$?
+  return $STATUS
+}
+
+. ../../meta/bee.sh "${@}"

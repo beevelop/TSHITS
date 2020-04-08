@@ -1,0 +1,14 @@
+whoami1:
+  image: emilevauge/whoami
+  labels:
+    - "traefik.enable=true"
+    - "traefik.backend=whoami"
+    - "traefik.frontend.rule=Host:traefik.example.com"
+
+whoami2:
+  image: emilevauge/whoami
+  labels:
+    - "traefik.enable=true"
+    - "traefik.backend=whoami"
+    - "traefik.frontend.rule=Host:traefik.example.com"
+

@@ -1,0 +1,55 @@
+version: "3"
+services:
+  weblate:
+    image: beevelop/weblate:${WEBLATE_VERSION}
+    env_file: weblate.env
+    links: [postgres,cache]
+    networks: [weblate,traefik]
+    environment:
+      WEBLATE_ALLOWED_HOSTS: ${SERVICE_DOMAIN}
+      DATABASE_ENV_POSTGRES_USER: ${DB_USER}
+      DATABASE_ENV_POSTGRES_PASSWORD: ${DB_PASS}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.port=8000"
+    volumes:
+      - ./data/config:/app/etc
+      - ./data/data:/app/data
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    
+  postgres:
+    image: postgres:${POSTGRES_TAG}
+    networks: [weblate]
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes: ["./data/postgres/:/var/lib/postgresql/data"]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  cache:
+    image: memcached:${MEMCACHED_TAG}
+    networks: [weblate]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  weblate:
+  traefik:
+    external:
+     name: traefik_default

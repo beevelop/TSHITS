@@ -1,0 +1,25 @@
+version: "3"
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:${TRAEFIK_VERSION}
+    environment:
+      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
+      - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
+    ports: [ "80:80", "443:443", "8080:8080" ]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.toml:/traefik.toml
+      - ./data/acme/:/etc/traefik/acme/
+      - ./certs/:/certs/
+      - ./data/logs/:/etc/traefik/logs/
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  default:
+    driver: bridge

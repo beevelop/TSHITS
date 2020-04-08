@@ -1,0 +1,24 @@
+version: "3"
+services:
+  duckling:
+    image: rasa/duckling
+    restart: unless-stopped
+    networks: [traefik]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=duckling"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+volumes:
+  tus_data:
+
+networks:
+  traefik:
+    external:
+      name: traefik_default

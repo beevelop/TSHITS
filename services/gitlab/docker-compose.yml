@@ -1,0 +1,61 @@
+version: "3"
+services:
+  gitlab:
+    image: sameersbn/gitlab:${GITLAB_VERSION}
+    env_file: gitlab.env
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.port=80"
+    links:
+      - redis:redisio
+      - database:postgresql
+    depends_on: [database,redis]
+    networks: [traefik,gitlab]
+    ports: [ "${GIT_PORT}:22" ]
+    volumes: [ "./data/gitlab/:/home/git/data" ]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  database:
+    image: sameersbn/postgresql:${POSTGRES_TAG}
+    volumes: [ "./data/postgres:/var/lib/postgresql" ]
+    networks: [gitlab]
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_EXTENSION: pg_trgm
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  redis:
+    image: sameersbn/redis:latest
+    command: redis-server --protected-mode no
+    volumes: [ "./data/redis:/var/lib/redis" ]
+    networks: [gitlab]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  gitlab: 
+  traefik:
+    external:
+      name: traefik_default

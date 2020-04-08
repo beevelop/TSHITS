@@ -1,0 +1,52 @@
+version: "3"
+services:
+  database:
+    image: monitoringartist/zabbix-db-mariadb
+    environment:
+      - MARIADB_USER=${DB_USER}
+      - MARIADB_PASS=${DB_PASS}
+    volumes:
+      - "./data/mysql:/var/lib/mysql"
+      - "/etc/localtime:/etc/localtime:ro"
+    networks: [zabbix]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  server:
+    image: monitoringartist/zabbix-xxl:${ZABBIX_VERSION}
+    ports: [ "10051:10051", "10052:10052" ]
+    links: [ "database:zabbix.db" ]
+    networks: [traefik,zabbix]
+    environment:
+      - ZS_DBHost=zabbix.db
+      - ZS_DBUser=${DB_USER}
+      - ZS_DBPassword=${DB_PASS}
+      - XXL_apiuser=api
+      - XXL_apipass=Swordfish
+      - XXL_grapher=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.port=80"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "./data/zabbix/custom-config:/etc/custom-config"
+      - "./data/zabbix/server:/usr/local/share/zabbix"
+      - "./data/zabbix/modules:/usr/lib/zabbix/modules"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  zabbix:
+  traefik:
+    external:
+      name: traefik_default

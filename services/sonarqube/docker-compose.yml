@@ -1,0 +1,45 @@
+version: "3"
+services:
+  sonarqube:
+    image: sonarqube:${SONARQUBE_VERSION}-alpine
+    environment:
+      - SONARQUBE_JDBC_URL=jdbc:postgresql://database:5432/sonar
+      - SONARQUBE_JDBC_USERNAME=sonar
+      - SONARQUBE_JDBC_PASSWORD=sonar
+    links: [database]
+    networks: [traefik,sonarqube]
+    volumes:
+      - ./data/extensions/:/opt/sonarqube/extensions
+      - ./data/plugins/:/opt/sonarqube/lib/bundled-plugins
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=9000"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    
+  database:
+    container_name: sonarqube-db
+    image: postgres:${POSTGRES_TAG}
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+    volumes: ["./data/postgres/:/var/lib/postgresql/data"]
+    networks: [traefik]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  sonarqube:
+  traefik:
+    external:
+      name: traefik_default

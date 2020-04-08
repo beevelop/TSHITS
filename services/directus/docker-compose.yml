@@ -1,0 +1,50 @@
+version: "3"
+services:
+  directus:
+    image: beevelop/directus:${DIRECTUS_VERSION}
+    environment:
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      SITE_NAME: ${SITE_NAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_NAME: ${DB_NAME}
+      DB_PASS: ${DB_PASS}
+    links: [mysql]
+    depends_on: [mysql]
+    networks: [directus,traefik]
+    volumes:
+      - "./data/directus/logs/:/var/www/html/api/logs"
+      - "./data/directus/media/:/var/www/html/media"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+  
+  mysql:
+    image: mysql:${MYSQL_TAG}
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+    volumes: ["./data/mysql/:/var/lib/mysql"]
+    networks: [directus]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  directus:
+  traefik:
+    external:
+      name: traefik_default

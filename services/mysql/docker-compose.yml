@@ -1,0 +1,23 @@
+version: "3"
+services:
+  mysql:
+    command: "--character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci"
+    image: mysql:${MYSQL_VERSION}
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    ports: ["3306:3306"]
+    networks: [mysql]
+    volumes:
+      - "./data/mysql:/var/lib/mysql"
+      - "./conf/:/etc/mysql/conf.d"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  mysql:
+
+#docker exec some-mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD"' > /some/path/on/your/host/all-databases.sql

@@ -1,0 +1,34 @@
+version: "3"
+services:
+  rundeck:
+    image: jordan/rundeck:${RUNDECK_VERSION}
+    environment:
+      EXTERNAL_SERVER_URL: "https://${SERVICE_DOMAIN}"
+      RUNDECK_ADMIN_PASSWORD: "${RUNDECK_ADMIN_PASSWORD}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=4440"
+    volumes:
+      - "./data/etc:/etc/rundeck"
+      - "./data/var:/var/rundeck"
+      - "./data/plugins:/opt/rundeck-plugins"
+      - "./data/var-log:/var/log/rundeck"
+      - "./data/ssh:/var/lib/rundeck/.ssh"
+      - "./data/mysql:/var/lib/mysql"
+      - "./data/logs:/var/lib/rundeck/logs"
+      - "./data/var-storage:/var/lib/rundeck/var/storage"
+    networks: [rundeck,traefik]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  rundeck:
+  traefik:
+    external:
+      name: traefik_default

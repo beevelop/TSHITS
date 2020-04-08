@@ -1,0 +1,51 @@
+version: "3"
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    volumes: [ "postgres_data:/var/lib/postgresql/data" ]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    networks: [ keycloak ]
+    restart: unless-stopped
+ 
+  keycloak:
+    image: jboss/keycloak:${KEYCLOAK_VERSION}
+    restart: unless-stopped
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASS}
+      KEYCLOAK_USER: ${KEYCLOAK_USER}
+      KEYCLOAK_PASSWORD: ${KEYCLOAK_PASSWORD}
+      PROXY_ADDRESS_FORWARDING: "true"
+    networks: [ keycloak, traefik ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=keycloak"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.port=8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    depends_on: [ postgres ]
+
+volumes:
+  postgres_data:
+
+networks:
+  keycloak:
+  traefik:
+    external:
+      name: traefik_default

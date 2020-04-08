@@ -1,0 +1,23 @@
+version: "3"
+services:
+  minio:
+    image: minio/minio:${MINIO_VERSION}
+    command: server /export
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+    volumes:
+      - ./data/export:/export
+      - ./data/config:/root/.minio
+    networks: [traefik]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  traefik:
+    external:
+      name: traefik_default

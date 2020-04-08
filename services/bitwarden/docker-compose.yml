@@ -1,0 +1,33 @@
+version: "3"
+services:
+  bitwarden:
+    image: mprasil/bitwarden:${BITWARDEN_VERSION}
+    environment:
+      - SIGNUPS_ALLOWED=false
+      - SHOW_PASSWORD_HINT=false
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SSL=${SMTP_SSL}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - DOMAIN=https://${SERVICE_DOMAIN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=bitwarden"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=80"
+    restart: unless-stopped
+    volumes: [ "./data:/data/" ]
+    networks: [ traefik ]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  traefik:
+    external:
+      name: traefik_default

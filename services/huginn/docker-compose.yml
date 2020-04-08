@@ -1,0 +1,47 @@
+version: "3"
+services:
+  postgres:
+    image: postgres:${POSTGRES_TAG}
+    networks: [huginn]
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes: ["./data/postgres/:/var/lib/postgresql/data"]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  huginn:
+    image: cantino/huginn:${HUGINN_HASH}
+    environment:
+      DATABASE_ADAPTER: postgresql
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DB_NAME}
+      DATABASE_USERNAME: ${DB_USER}
+      DATABASE_PASSWORD: ${DB_PASS}
+      DOMAIN: ${SERVICE_DOMAIN}
+      INVITATION_CODE: ${INVITATION_CODE}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.port=3000"
+    links: [postgres]
+    depends_on: [postgres]
+    networks: [traefik,huginn]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  huginn:
+  traefik:
+    external:
+      name: traefik_default

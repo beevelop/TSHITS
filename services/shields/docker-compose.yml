@@ -1,0 +1,38 @@
+version: "3"
+services:
+  shields:
+    image: beevelop/shields:${SHIELDS_TAG}
+    environment:
+      GH_CLIENT_ID: ${GH_CLIENT_ID}
+      GH_CLIENT_SECRET: ${GH_CLIENT_SECRET}
+      INFOSITE: http://${SERVICE_DOMAIN}
+    networks: [shields]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  varnish:
+    image: beevelop/varnish
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=shields"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+    links: ["shields:backend"]
+    networks: [shields,traefik]
+    depends_on: [shields]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  shields:
+  traefik:
+    external:
+      name: traefik_default

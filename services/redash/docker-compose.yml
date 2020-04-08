@@ -1,0 +1,82 @@
+version: '3'
+services:
+  server:
+    image: redash/redash:${REDASH_VERSION}
+    command: server
+    networks: [redash]
+    depends_on: ["postgres", "redis"]
+    ports: ["5000:5000"]
+    environment:
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_WEB_WORKERS: 4
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  worker:
+    image: redash/redash:${REDASH_VERSION}
+    command: scheduler
+    networks: [redash]
+    environment:
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+      QUEUES: "queries,scheduled_queries,celery"
+      WORKERS_COUNT: 2
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  redis:
+    image: redis:${REDIS_TAG}
+    networks: [redash]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  postgres:
+    image: postgres:${POSTGRES_TAG}
+    volumes: ["./data/postgres:/var/lib/postgresql/data"]
+    networks: [redash]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  nginx:
+    image: redash/nginx:latest
+    depends_on: ["server"]
+    links: ["server:redash"]
+    networks: [redash, traefik]
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.docker.network=traefik_default"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  redash:
+  traefik:
+    external:
+      name: traefik_default
