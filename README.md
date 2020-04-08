@@ -132,4 +132,6 @@ with Traefik **v1**.
   volume mounts.
 
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Pull requests are highly welcomed. Feel free to keep the images up-to-date, add
+new configuration capabilities, introduce service specific READMEs and notes.
+Just spread the love of using simple Docker-Compose files ❤️
