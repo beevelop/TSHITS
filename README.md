@@ -3,7 +3,7 @@
 
 Around 4 years ago, I started developing and maintaining my personal, self-hosted technology stack and wrote a bunch of Docker-Compose files. I wanted to host awesome tools like GitLab, Metabase, Jira, Huginn, Monica, Bitwarden, Cabot, Confluence, OpenVPN, Nexus, Redash, Rundeck, Weblate, Zabbix and even more on my own infrastructure.
 
-In the light of the [recent announcement](https://www.docker.com/blog/announcing-the-compose-specification/) from Docker to develop the **Compose Specification**, I like to contribute **T**he **S**elf-**H**osted, **I**ndependent **T**echnology **S**tack to the community.
+In the light of the [recent announcement](https://www.docker.com/blog/announcing-the-compose-specification/) from Docker to develop the **Compose Specification**, I like to contribute **T**he **S**elf-**H**osted, **I**ndependent **T**echnology **S**tack (pronounced **T-SHITS**) to the community.
 
 > :warning: Some of the Docker-Compose files are over 2 years old and might not work with the most recent versions of the referenced Docker images. Feel free to raise an issue, if you stumble upon something. :v:
 
