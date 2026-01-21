@@ -123,17 +123,26 @@ jobs:
           LINT_EXIT_CODE=${LINT_EXIT_CODE:-0}
           
           # Parse results for summary
-          if [[ -f lint-results/dclint-report.txt ]]; then
-            # Count errors and warnings from output
-            ERROR_COUNT=$(grep -c "error" lint-results/dclint-report.txt 2>/dev/null || echo "0")
-            WARNING_COUNT=$(grep -c "warning" lint-results/dclint-report.txt 2>/dev/null || echo "0")
-          else
-            ERROR_COUNT=0
-            WARNING_COUNT=0
+          ERROR_COUNT=0
+          WARNING_COUNT=0
+          if [[ -f lint-results/dclint-report.txt ]] && [[ -s lint-results/dclint-report.txt ]]; then
+            # Count errors and warnings from output (match severity indicators)
+            ERROR_COUNT=$(grep -cE '\berror\b' lint-results/dclint-report.txt 2>/dev/null || true)
+            WARNING_COUNT=$(grep -cE '\bwarning\b' lint-results/dclint-report.txt 2>/dev/null || true)
+            # Ensure we have valid integers
+            ERROR_COUNT=${ERROR_COUNT:-0}
+            WARNING_COUNT=${WARNING_COUNT:-0}
+            # Strip any whitespace
+            ERROR_COUNT=$(echo "$ERROR_COUNT" | tr -d '[:space:]')
+            WARNING_COUNT=$(echo "$WARNING_COUNT" | tr -d '[:space:]')
           fi
           
-          echo "error_count=$ERROR_COUNT" >> $GITHUB_OUTPUT
-          echo "warning_count=$WARNING_COUNT" >> $GITHUB_OUTPUT
+          # Validate counts are integers, default to 0 if not
+          [[ "$ERROR_COUNT" =~ ^[0-9]+$ ]] || ERROR_COUNT=0
+          [[ "$WARNING_COUNT" =~ ^[0-9]+$ ]] || WARNING_COUNT=0
+          
+          echo "error_count=${ERROR_COUNT}" >> $GITHUB_OUTPUT
+          echo "warning_count=${WARNING_COUNT}" >> $GITHUB_OUTPUT
           
           # Display results
           echo ""
