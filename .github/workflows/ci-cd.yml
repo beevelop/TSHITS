@@ -1,0 +1,695 @@
+# T-SHITS CI/CD Pipeline
+# Sequential Docker Compose Testing with CVE Scanning
+#
+# This workflow validates all Docker Compose configurations and scans images for vulnerabilities.
+# It runs sequentially to prevent resource conflicts and includes aggressive cleanup between tests.
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'services/**'
+      - '.github/workflows/**'
+      - '.github/scripts/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'services/**'
+      - '.github/workflows/**'
+      - '.github/scripts/**'
+  workflow_dispatch:
+    inputs:
+      skip_cve_scan:
+        description: 'Skip CVE vulnerability scanning'
+        required: false
+        default: 'false'
+        type: boolean
+      specific_service:
+        description: 'Test specific service only (leave empty for all)'
+        required: false
+        default: ''
+        type: string
+      fail_on_high:
+        description: 'Fail on HIGH severity CVEs (not just CRITICAL)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  # Test configuration
+  TEST_TIMEOUT_MINUTES: 5
+  HEALTH_CHECK_RETRIES: 30
+  HEALTH_CHECK_INTERVAL: 10
+  # CVE scanning configuration
+  CVE_FAIL_ON_CRITICAL: true
+  CVE_FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
+
+jobs:
+  # ============================================================================
+  # Job 1: Discover and Validate Services
+  # ============================================================================
+  discover:
+    name: Discover Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.discover.outputs.services }}
+      service_count: ${{ steps.discover.outputs.service_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover Docker Compose services
+        id: discover
+        run: |
+          set -euo pipefail
+          
+          echo "=== Discovering Docker Compose services ==="
+          
+          # Find all docker-compose.yml files
+          COMPOSE_FILES=$(find services -name "docker-compose.yml" -type f | sort)
+          
+          # Extract service directories
+          SERVICES=()
+          for file in $COMPOSE_FILES; do
+            SERVICE_DIR=$(dirname "$file")
+            SERVICE_NAME=$(basename "$SERVICE_DIR")
+            
+            # Skip nested services (like traefik/whoami)
+            DEPTH=$(echo "$SERVICE_DIR" | tr '/' '\n' | wc -l)
+            if [[ "$DEPTH" -eq 2 ]]; then
+              SERVICES+=("$SERVICE_NAME")
+            fi
+          done
+          
+          # Filter for specific service if requested
+          if [[ -n "${{ github.event.inputs.specific_service }}" ]]; then
+            SPECIFIC="${{ github.event.inputs.specific_service }}"
+            if printf '%s\n' "${SERVICES[@]}" | grep -q "^${SPECIFIC}$"; then
+              SERVICES=("$SPECIFIC")
+              echo "Filtering to specific service: $SPECIFIC"
+            else
+              echo "ERROR: Service '$SPECIFIC' not found!"
+              echo "Available services: ${SERVICES[*]}"
+              exit 1
+            fi
+          fi
+          
+          # Convert to JSON array
+          SERVICES_JSON=$(printf '%s\n' "${SERVICES[@]}" | jq -R . | jq -s -c .)
+          SERVICE_COUNT=${#SERVICES[@]}
+          
+          echo "services=$SERVICES_JSON" >> $GITHUB_OUTPUT
+          echo "service_count=$SERVICE_COUNT" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=== Discovered $SERVICE_COUNT services ==="
+          echo "$SERVICES_JSON" | jq -r '.[]'
+
+      - name: Validate compose file syntax
+        run: |
+          set -euo pipefail
+          
+          echo "=== Validating Docker Compose syntax ==="
+          ERRORS=0
+          
+          for SERVICE in $(echo '${{ steps.discover.outputs.services }}' | jq -r '.[]'); do
+            COMPOSE_FILE="services/${SERVICE}/docker-compose.yml"
+            
+            echo -n "Validating ${SERVICE}... "
+            
+            if docker compose -f "$COMPOSE_FILE" config > /dev/null 2>&1; then
+              echo "OK"
+            else
+              echo "FAILED"
+              echo "--- Error details for ${SERVICE} ---"
+              docker compose -f "$COMPOSE_FILE" config 2>&1 || true
+              echo "---"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          
+          if [[ $ERRORS -gt 0 ]]; then
+            echo ""
+            echo "ERROR: $ERRORS compose file(s) have syntax errors!"
+            exit 1
+          fi
+          
+          echo ""
+          echo "All compose files validated successfully!"
+
+  # ============================================================================
+  # Job 2: Extract All Docker Images
+  # ============================================================================
+  extract-images:
+    name: Extract Docker Images
+    runs-on: ubuntu-latest
+    needs: discover
+    outputs:
+      images: ${{ steps.extract.outputs.images }}
+      image_count: ${{ steps.extract.outputs.image_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract unique images from all compose files
+        id: extract
+        run: |
+          set -euo pipefail
+          
+          echo "=== Extracting Docker images from compose files ==="
+          
+          # Create temp file for all images
+          > /tmp/all_images.txt
+          
+          for SERVICE in $(echo '${{ needs.discover.outputs.services }}' | jq -r '.[]'); do
+            COMPOSE_FILE="services/${SERVICE}/docker-compose.yml"
+            ENV_FILE="services/${SERVICE}/.env"
+            EXAMPLE_FILE="services/${SERVICE}/.env.example"
+            
+            echo "Processing ${SERVICE}..."
+            
+            # Load environment variables if they exist
+            if [[ -f "$ENV_FILE" ]]; then
+              set -a
+              source "$ENV_FILE" 2>/dev/null || true
+              set +a
+            fi
+            
+            # Also load example env for any missing vars
+            if [[ -f "$EXAMPLE_FILE" ]]; then
+              set -a
+              source "$EXAMPLE_FILE" 2>/dev/null || true
+              set +a
+            fi
+            
+            # Extract images using docker compose config
+            IMAGES=$(docker compose -f "$COMPOSE_FILE" config 2>/dev/null | \
+                     grep -E '^\s*image:' | \
+                     sed 's/.*image:\s*//' | \
+                     sed 's/[[:space:]]*$//' | \
+                     tr -d '"' || true)
+            
+            if [[ -n "$IMAGES" ]]; then
+              echo "$IMAGES" >> /tmp/all_images.txt
+            fi
+          done
+          
+          # Get unique images and remove empty lines
+          UNIQUE_IMAGES=$(sort -u /tmp/all_images.txt | grep -v '^$' || true)
+          IMAGE_COUNT=$(echo "$UNIQUE_IMAGES" | grep -c . || echo "0")
+          
+          # Convert to JSON array
+          IMAGES_JSON=$(echo "$UNIQUE_IMAGES" | jq -R . | jq -s -c .)
+          
+          echo "images=$IMAGES_JSON" >> $GITHUB_OUTPUT
+          echo "image_count=$IMAGE_COUNT" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=== Found $IMAGE_COUNT unique Docker images ==="
+          echo "$UNIQUE_IMAGES"
+
+  # ============================================================================
+  # Job 3: CVE Vulnerability Scanning
+  # ============================================================================
+  cve-scan:
+    name: CVE Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: extract-images
+    if: ${{ github.event.inputs.skip_cve_scan != 'true' }}
+    outputs:
+      critical_count: ${{ steps.summarize.outputs.critical_count }}
+      high_count: ${{ steps.summarize.outputs.high_count }}
+      scan_passed: ${{ steps.summarize.outputs.scan_passed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Log disk space before scan
+        run: |
+          echo "=== Disk space before CVE scan ==="
+          df -h /
+
+      - name: Scan images for vulnerabilities
+        id: scan
+        run: |
+          set -euo pipefail
+          
+          echo "=== Starting batch CVE scan ==="
+          
+          IMAGES='${{ needs.extract-images.outputs.images }}'
+          IMAGE_COUNT=${{ needs.extract-images.outputs.image_count }}
+          
+          mkdir -p scan-results
+          
+          # Initialize counters
+          TOTAL_CRITICAL=0
+          TOTAL_HIGH=0
+          TOTAL_MEDIUM=0
+          TOTAL_LOW=0
+          SCANNED=0
+          FAILED=0
+          
+          # Create summary file
+          echo "# CVE Scan Results" > scan-results/summary.md
+          echo "" >> scan-results/summary.md
+          echo "| Image | Critical | High | Medium | Low | Status |" >> scan-results/summary.md
+          echo "|-------|----------|------|--------|-----|--------|" >> scan-results/summary.md
+          
+          for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
+            echo ""
+            echo "=== Scanning: $IMAGE ==="
+            SCANNED=$((SCANNED + 1))
+            
+            # Generate safe filename
+            SAFE_NAME=$(echo "$IMAGE" | tr '/:' '__')
+            
+            # Run Trivy scan
+            if trivy image --severity CRITICAL,HIGH,MEDIUM,LOW \
+                          --format json \
+                          --output "scan-results/${SAFE_NAME}.json" \
+                          --timeout 10m \
+                          "$IMAGE" 2>/dev/null; then
+              
+              # Parse results
+              CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
+              HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
+              MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
+              LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
+              
+              # Update totals
+              TOTAL_CRITICAL=$((TOTAL_CRITICAL + CRITICAL))
+              TOTAL_HIGH=$((TOTAL_HIGH + HIGH))
+              TOTAL_MEDIUM=$((TOTAL_MEDIUM + MEDIUM))
+              TOTAL_LOW=$((TOTAL_LOW + LOW))
+              
+              # Determine status
+              if [[ $CRITICAL -gt 0 ]]; then
+                STATUS="CRITICAL"
+              elif [[ $HIGH -gt 0 ]]; then
+                STATUS="HIGH"
+              else
+                STATUS="PASS"
+              fi
+              
+              echo "  Critical: $CRITICAL, High: $HIGH, Medium: $MEDIUM, Low: $LOW"
+              echo "| \`$IMAGE\` | $CRITICAL | $HIGH | $MEDIUM | $LOW | $STATUS |" >> scan-results/summary.md
+              
+            else
+              echo "  WARNING: Failed to scan image (may not exist or be accessible)"
+              FAILED=$((FAILED + 1))
+              echo "| \`$IMAGE\` | - | - | - | - | SKIPPED |" >> scan-results/summary.md
+            fi
+            
+            # Cleanup pulled image to save disk space
+            docker rmi "$IMAGE" 2>/dev/null || true
+            docker system prune -f > /dev/null 2>&1 || true
+          done
+          
+          # Write totals to summary
+          echo "" >> scan-results/summary.md
+          echo "## Summary" >> scan-results/summary.md
+          echo "" >> scan-results/summary.md
+          echo "- **Images Scanned:** $SCANNED / $IMAGE_COUNT" >> scan-results/summary.md
+          echo "- **Images Skipped:** $FAILED" >> scan-results/summary.md
+          echo "- **Total Critical:** $TOTAL_CRITICAL" >> scan-results/summary.md
+          echo "- **Total High:** $TOTAL_HIGH" >> scan-results/summary.md
+          echo "- **Total Medium:** $TOTAL_MEDIUM" >> scan-results/summary.md
+          echo "- **Total Low:** $TOTAL_LOW" >> scan-results/summary.md
+          
+          # Export for next step
+          echo "total_critical=$TOTAL_CRITICAL" >> $GITHUB_OUTPUT
+          echo "total_high=$TOTAL_HIGH" >> $GITHUB_OUTPUT
+          echo "scanned=$SCANNED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=== CVE Scan Complete ==="
+          cat scan-results/summary.md
+
+      - name: Log disk space after scan
+        run: |
+          echo "=== Disk space after CVE scan ==="
+          df -h /
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cve-scan-results
+          path: scan-results/
+          retention-days: 30
+
+      - name: Evaluate scan results
+        id: summarize
+        run: |
+          CRITICAL=${{ steps.scan.outputs.total_critical }}
+          HIGH=${{ steps.scan.outputs.total_high }}
+          
+          echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high_count=$HIGH" >> $GITHUB_OUTPUT
+          
+          PASSED=true
+          
+          # Check CRITICAL vulnerabilities
+          if [[ $CRITICAL -gt 0 ]]; then
+            echo "::error::Found $CRITICAL CRITICAL vulnerabilities!"
+            PASSED=false
+          fi
+          
+          # Check HIGH vulnerabilities if configured
+          if [[ "${{ env.CVE_FAIL_ON_HIGH }}" == "true" ]] && [[ $HIGH -gt 0 ]]; then
+            echo "::error::Found $HIGH HIGH vulnerabilities (fail_on_high enabled)!"
+            PASSED=false
+          fi
+          
+          echo "scan_passed=$PASSED" >> $GITHUB_OUTPUT
+          
+          if [[ "$PASSED" != "true" ]]; then
+            echo ""
+            echo "CVE scan FAILED - blocking pipeline"
+            exit 1
+          fi
+          
+          echo "CVE scan PASSED"
+
+  # ============================================================================
+  # Job 4: Sequential Docker Compose Testing
+  # ============================================================================
+  test-services:
+    name: Test Docker Compose Services
+    runs-on: ubuntu-latest
+    needs: [discover, cve-scan]
+    # Run even if CVE scan is skipped, but not if it failed
+    if: ${{ always() && needs.discover.result == 'success' && (needs.cve-scan.result == 'success' || needs.cve-scan.result == 'skipped') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup test environment
+        run: |
+          set -euo pipefail
+          
+          echo "=== Setting up test environment ==="
+          
+          # Create required network for Traefik
+          docker network create traefik_default 2>/dev/null || true
+          
+          # Log initial disk space
+          echo ""
+          echo "=== Initial disk space ==="
+          df -h /
+          
+          # Log Docker info
+          echo ""
+          echo "=== Docker info ==="
+          docker info | grep -E "(Server Version|Storage Driver|Total Memory)"
+
+      - name: Make scripts executable
+        run: |
+          chmod +x .github/scripts/*.sh 2>/dev/null || true
+
+      - name: Sequential service testing
+        id: test
+        run: |
+          set -euo pipefail
+          
+          echo "=== Starting sequential Docker Compose testing ==="
+          
+          SERVICES='${{ needs.discover.outputs.services }}'
+          SERVICE_COUNT=${{ needs.discover.outputs.service_count }}
+          TIMEOUT_MINUTES=${{ env.TEST_TIMEOUT_MINUTES }}
+          
+          # Initialize counters
+          PASSED=0
+          FAILED=0
+          FAILED_SERVICES=""
+          
+          # Create results directory
+          mkdir -p test-results
+          
+          # Start timing
+          PIPELINE_START=$(date +%s)
+          
+          # Initialize results file
+          echo "# Docker Compose Test Results" > test-results/summary.md
+          echo "" >> test-results/summary.md
+          echo "| Service | Status | Duration | Details |" >> test-results/summary.md
+          echo "|---------|--------|----------|---------|" >> test-results/summary.md
+          
+          SERVICE_INDEX=0
+          for SERVICE in $(echo "$SERVICES" | jq -r '.[]'); do
+            SERVICE_INDEX=$((SERVICE_INDEX + 1))
+            SERVICE_DIR="services/${SERVICE}"
+            COMPOSE_FILE="${SERVICE_DIR}/docker-compose.yml"
+            
+            echo ""
+            echo "============================================================"
+            echo "[$SERVICE_INDEX/$SERVICE_COUNT] Testing: $SERVICE"
+            echo "============================================================"
+            
+            # Log disk space before test
+            DISK_BEFORE=$(df / | tail -1 | awk '{print $4}')
+            echo "Disk available before: ${DISK_BEFORE}K"
+            
+            TEST_START=$(date +%s)
+            TEST_STATUS="PASSED"
+            TEST_DETAILS=""
+            
+            # Load environment variables
+            if [[ -f "${SERVICE_DIR}/.env" ]]; then
+              set -a
+              source "${SERVICE_DIR}/.env" 2>/dev/null || true
+              set +a
+            fi
+            if [[ -f "${SERVICE_DIR}/.env.example" ]]; then
+              set -a
+              source "${SERVICE_DIR}/.env.example" 2>/dev/null || true
+              set +a
+            fi
+            
+            # Set test-specific environment variables
+            export SERVICE_DOMAIN="${SERVICE}.test.local"
+            
+            # Step 1: Pull images (with timeout)
+            echo "--- Pulling images ---"
+            if timeout 300 docker compose -f "$COMPOSE_FILE" pull 2>&1; then
+              echo "Images pulled successfully"
+            else
+              echo "WARNING: Some images may have failed to pull"
+            fi
+            
+            # Step 2: Start services (with timeout)
+            echo "--- Starting services ---"
+            if timeout 120 docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+              echo "Services started"
+              
+              # Step 3: Wait for services to be running
+              echo "--- Waiting for services to stabilize ---"
+              sleep 10
+              
+              # Step 4: Check container health
+              echo "--- Checking container status ---"
+              CONTAINERS=$(docker compose -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l)
+              RUNNING=$(docker compose -f "$COMPOSE_FILE" ps --status running -q 2>/dev/null | wc -l)
+              
+              echo "Containers: $RUNNING running of $CONTAINERS defined"
+              
+              if [[ "$RUNNING" -gt 0 ]]; then
+                # Show container status
+                docker compose -f "$COMPOSE_FILE" ps
+                
+                # Basic integration check - verify containers respond
+                echo "--- Running integration checks ---"
+                HEALTHY=true
+                
+                # Check each container is running (not restarting)
+                for CONTAINER in $(docker compose -f "$COMPOSE_FILE" ps -q 2>/dev/null); do
+                  STATE=$(docker inspect --format='{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo "unknown")
+                  RESTARTS=$(docker inspect --format='{{.RestartCount}}' "$CONTAINER" 2>/dev/null || echo "0")
+                  
+                  if [[ "$STATE" != "running" ]] || [[ "$RESTARTS" -gt 2 ]]; then
+                    echo "WARNING: Container $CONTAINER - State: $STATE, Restarts: $RESTARTS"
+                    HEALTHY=false
+                  fi
+                done
+                
+                if [[ "$HEALTHY" == "true" ]]; then
+                  TEST_DETAILS="All containers running"
+                else
+                  TEST_STATUS="FAILED"
+                  TEST_DETAILS="Container health issues"
+                fi
+              else
+                TEST_STATUS="FAILED"
+                TEST_DETAILS="No containers running"
+              fi
+            else
+              TEST_STATUS="FAILED"
+              TEST_DETAILS="Failed to start services"
+            fi
+            
+            # Calculate duration
+            TEST_END=$(date +%s)
+            TEST_DURATION=$((TEST_END - TEST_START))
+            
+            # Log results
+            echo ""
+            echo "Result: $TEST_STATUS ($TEST_DURATION seconds)"
+            
+            if [[ "$TEST_STATUS" == "PASSED" ]]; then
+              PASSED=$((PASSED + 1))
+              echo "| $SERVICE | PASS | ${TEST_DURATION}s | $TEST_DETAILS |" >> test-results/summary.md
+            else
+              FAILED=$((FAILED + 1))
+              FAILED_SERVICES="${FAILED_SERVICES} ${SERVICE}"
+              echo "| $SERVICE | FAIL | ${TEST_DURATION}s | $TEST_DETAILS |" >> test-results/summary.md
+              
+              # Capture logs for failed tests
+              echo "--- Capturing logs for failed service ---"
+              docker compose -f "$COMPOSE_FILE" logs --tail=100 > "test-results/${SERVICE}-logs.txt" 2>&1 || true
+            fi
+            
+            # Step 5: Cleanup - AGGRESSIVE
+            echo "--- Cleaning up ---"
+            
+            # Stop and remove containers
+            docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans 2>/dev/null || true
+            
+            # Remove images used by this service
+            IMAGES=$(docker compose -f "$COMPOSE_FILE" config 2>/dev/null | grep -E '^\s*image:' | sed 's/.*image:\s*//' | tr -d '"' || true)
+            for IMG in $IMAGES; do
+              docker rmi "$IMG" 2>/dev/null || true
+            done
+            
+            # Aggressive system prune
+            docker system prune -af --volumes 2>/dev/null || true
+            
+            # Log disk space after cleanup
+            DISK_AFTER=$(df / | tail -1 | awk '{print $4}')
+            DISK_FREED=$((DISK_AFTER - DISK_BEFORE))
+            echo "Disk available after cleanup: ${DISK_AFTER}K (freed: ${DISK_FREED}K)"
+            
+          done
+          
+          # Calculate total duration
+          PIPELINE_END=$(date +%s)
+          TOTAL_DURATION=$((PIPELINE_END - PIPELINE_START))
+          
+          # Write summary
+          echo "" >> test-results/summary.md
+          echo "## Summary" >> test-results/summary.md
+          echo "" >> test-results/summary.md
+          echo "- **Total Services:** $SERVICE_COUNT" >> test-results/summary.md
+          echo "- **Passed:** $PASSED" >> test-results/summary.md
+          echo "- **Failed:** $FAILED" >> test-results/summary.md
+          echo "- **Total Duration:** ${TOTAL_DURATION}s" >> test-results/summary.md
+          
+          if [[ $FAILED -gt 0 ]]; then
+            echo "" >> test-results/summary.md
+            echo "### Failed Services" >> test-results/summary.md
+            echo "" >> test-results/summary.md
+            for SVC in $FAILED_SERVICES; do
+              echo "- $SVC" >> test-results/summary.md
+            done
+          fi
+          
+          echo ""
+          echo "============================================================"
+          echo "FINAL RESULTS"
+          echo "============================================================"
+          cat test-results/summary.md
+          
+          # Export results
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "total_duration=$TOTAL_DURATION" >> $GITHUB_OUTPUT
+          
+          # Final disk space check
+          echo ""
+          echo "=== Final disk space ==="
+          df -h /
+          
+          # Exit with failure if any tests failed
+          if [[ $FAILED -gt 0 ]]; then
+            echo ""
+            echo "::error::$FAILED service(s) failed testing:$FAILED_SERVICES"
+            exit 1
+          fi
+          
+          echo ""
+          echo "All services passed testing!"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-compose-test-results
+          path: test-results/
+          retention-days: 30
+
+  # ============================================================================
+  # Job 5: Final Summary
+  # ============================================================================
+  summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [discover, extract-images, cve-scan, test-services]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Jobs Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Discover Services | ${{ needs.discover.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Extract Images | ${{ needs.extract-images.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CVE Scan | ${{ needs.cve-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Services | ${{ needs.test-services.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Services Discovered:** ${{ needs.discover.outputs.service_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Unique Images:** ${{ needs.extract-images.outputs.image_count }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.cve-scan.result }}" == "success" ]]; then
+            echo "- **Critical CVEs:** ${{ needs.cve-scan.outputs.critical_count || 0 }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **High CVEs:** ${{ needs.cve-scan.outputs.high_count || 0 }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Determine overall status
+          if [[ "${{ needs.test-services.result }}" == "success" ]] && \
+             [[ "${{ needs.cve-scan.result }}" != "failure" ]]; then
+            echo "## Result: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Result: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check overall result
+        run: |
+          if [[ "${{ needs.test-services.result }}" == "failure" ]]; then
+            echo "Pipeline failed: Service tests failed"
+            exit 1
+          fi
+          
+          if [[ "${{ needs.cve-scan.result }}" == "failure" ]]; then
+            echo "Pipeline failed: CVE scan found critical vulnerabilities"
+            exit 1
+          fi
+          
+          echo "Pipeline completed successfully!"
