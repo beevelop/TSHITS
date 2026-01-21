@@ -10,16 +10,18 @@ AI agent operating manual for T-SHITS. **Read completely before any action.**
 
 - **Created:** April 2020
 - **Purpose:** Docker-Compose configurations for self-hosted services
-- **Reverse Proxy:** Traefik v1 with Let's Encrypt (CloudFlare DNS-01)
+- **Reverse Proxy:** Traefik v3 with Let's Encrypt (CloudFlare DNS-01)
 - **Encryption:** OpenSSL AES-256-CBC for environment files
 - **Backups:** Restic (local `./backups/` per service)
+- **Linting:** DCLint (zavoloklom/docker-compose-linter) for compose file validation
 
 ---
 
 ## Do
 
 - Follow existing docker-compose patterns exactly
-- Use `version: "3"` for all compose files
+- Use `version: "3"` for all compose files (optional but kept for compatibility)
+- Use `name: <service>` to explicitly set the project name
 - Include `restart: unless-stopped` on all containers
 - Add JSON logging limits to every service:
   ```yaml
@@ -35,7 +37,9 @@ AI agent operating manual for T-SHITS. **Read completely before any action.**
 - Keep `.env` for version tags, `.env.<environ>` for environment-specific secrets
 - Use `example.com` as placeholder domain in examples
 - Use `Swordfish` as placeholder password in examples
-- Pin image versions explicitly (no `latest` except for Redis)
+- Pin image versions explicitly (see Image Tagging Policy below)
+- Use explicit interface binding for ports (e.g., `"0.0.0.0:80:80"`)
+- Run DCLint before submitting compose file changes
 
 ## Don't
 
@@ -48,7 +52,61 @@ AI agent operating manual for T-SHITS. **Read completely before any action.**
 - **Never** execute `./bee upgrade` or `./bee nuke` without user confirmation
 - **Never** modify `meta/bee.sh` or `meta/checks.sh` without explicit approval
 - **Never** remove backup folders or prune backups without approval
-- **Never** change Traefik v1 syntax to v2/v3 (legacy stack)
+
+---
+
+## Image Tagging Policy
+
+Pin image versions explicitly to ensure reproducible deployments.
+
+**Standard Rule:** Use explicit version tags (e.g., `nginx:1.25.3`, `postgres:15-alpine`)
+
+**Allowed Exceptions:**
+- **Redis:** May use `latest` tag (stable, backward-compatible)
+- **Images with only `latest` available:** Document in `.env` file with comment explaining the exception
+
+**Example for exception:**
+```bash
+# .env
+# Note: redash/nginx only publishes 'latest' tag - no versioned tags available
+REDASH_NGINX_VERSION=latest
+```
+
+---
+
+## Linting
+
+Docker Compose files are validated using [DCLint](https://github.com/zavoloklom/docker-compose-linter).
+
+### Running the Linter
+
+```bash
+# Validate all compose files (read-only)
+docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services -r -c /app/.dclintrc.yaml
+
+# Auto-fix style issues (formatting, ordering)
+docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services -r -c /app/.dclintrc.yaml --fix
+```
+
+### Linter Rules
+
+Configuration is in `.dclintrc.yaml`. Key rules enforced:
+
+| Rule | Level | Description |
+|------|-------|-------------|
+| `no-quotes-in-volumes` | Error | Volume paths must not be quoted |
+| `require-quotes-in-ports` | Error | Port mappings must use double quotes |
+| `service-image-require-explicit-tag` | Error | Images must have explicit tags |
+| `no-duplicate-container-names` | Error | Container names must be unique |
+| `no-duplicate-exported-ports` | Error | Exported ports must be unique |
+| `require-project-name-field` | Error | Compose files must have `name` field |
+| `no-unbound-port-interfaces` | Error | Ports must specify interface (0.0.0.0) |
+| `service-keys-order` | Warning | Service keys should follow standard order |
+| `services-alphabetical-order` | Warning | Services should be alphabetically sorted |
+
+### CI/CD Integration
+
+The linter runs automatically in the CI/CD pipeline (Job 1). All errors must be fixed before merging.
 
 ---
 
@@ -58,6 +116,7 @@ AI agent operating manual for T-SHITS. **Read completely before any action.**
 TSHITS/
 ├── .bee.environ          # Environment slug (e.g., "production")
 ├── .bee.pass             # Master encryption key (NEVER commit real value)
+├── .dclintrc.yaml        # Docker Compose linter configuration
 ├── meta/
 │   ├── bee.sh            # Core helper functions (DO NOT MODIFY)
 │   └── checks.sh         # Health check functions
@@ -115,7 +174,7 @@ TSHITS/
 
 ```bash
 # Generate config from template
-envsubst < traefik.toml.tpl > traefik.toml
+envsubst < traefik.yml.tpl > traefik.yml
 ```
 
 ---
@@ -127,9 +186,11 @@ envsubst < traefik.toml.tpl > traefik.toml
 - Analyze docker-compose configurations
 - Validate YAML syntax
 - Create new `.env.example` files
+- Run DCLint in read-only mode (validation only)
+- Apply DCLint auto-fixes for style issues (formatting, key ordering)
 
 **Ask first:**
-- Modifying existing docker-compose.yml files
+- Modifying existing docker-compose.yml files (beyond lint fixes)
 - Adding new services
 - Creating encrypted environment files
 
@@ -146,26 +207,37 @@ envsubst < traefik.toml.tpl > traefik.toml
 
 ### Standard Service Template
 
+Service keys must follow DCLint's expected order:
+
 ```yaml
 version: "3"
+name: <service>
 services:
   <service>:
     image: <image>:${<SERVICE>_VERSION}
+    container_name: <service>
+    depends_on: [dependency1, dependency2]
+    volumes:
+      - ./data/<subdir>:/container/path
     environment:
       - VAR=${VAR}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=<port>"
-    networks: [<service>,traefik]
-    volumes: ["./data/<subdir>:/container/path"]
+    ports:
+      - "0.0.0.0:8080:8080"
+    networks: [<service>, traefik]
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.<service>.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.<service>.entrypoints=websecure"
+      - "traefik.http.routers.<service>.tls=true"
+      - "traefik.http.routers.<service>.tls.certresolver=letsencrypt"
+      - "traefik.http.services.<service>.loadbalancer.server.port=<port>"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   <service>:
@@ -173,6 +245,34 @@ networks:
     external:
       name: traefik_default
 ```
+
+### Service Key Order Reference
+
+When defining services, use this key order for consistency:
+
+1. `image`
+2. `build`
+3. `container_name`
+4. `depends_on`
+5. `volumes`
+6. `volumes_from`
+7. `configs`
+8. `secrets`
+9. `environment`
+10. `env_file`
+11. `ports`
+12. `networks`
+13. `network_mode`
+14. `extra_hosts`
+15. `command`
+16. `entrypoint`
+17. `working_dir`
+18. `restart`
+19. `healthcheck`
+20. `logging`
+21. `labels`
+22. `user`
+23. `isolation`
 
 ### Environment File Patterns
 
@@ -189,6 +289,22 @@ DB_USER=bee
 DB_PASS=Swordfish
 SECRET_KEY=your_secret_here
 ```
+
+### Traefik v3 Labels Reference
+
+All services use Traefik v3 label syntax for routing configuration:
+
+| Label | Purpose |
+|-------|---------|
+| `traefik.enable=true` | Enable Traefik for this container |
+| `traefik.http.routers.<name>.rule=Host(\`domain\`)` | Route by hostname (use backticks!) |
+| `traefik.http.routers.<name>.entrypoints=websecure` | Use HTTPS entrypoint |
+| `traefik.http.routers.<name>.tls=true` | Enable TLS |
+| `traefik.http.routers.<name>.tls.certresolver=letsencrypt` | Use Let's Encrypt resolver |
+| `traefik.http.services.<name>.loadbalancer.server.port=<port>` | Container port to route to |
+| `traefik.docker.network=traefik_default` | Docker network for routing |
+
+**Important:** The `<name>` in router/service labels should match the service/container name for consistency.
 
 ---
 
@@ -252,7 +368,8 @@ Sentry: Update base image to getsentry/sentry
 5. Create `bee` script with `SERVICE` and `WAIT_TIME` exports
 6. Implement `do_health()` function
 7. Optionally implement `do_prepare()` for setup tasks
-8. Test with `./bee up test`
+8. Run DCLint to validate: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<name> -c /app/.dclintrc.yaml`
+9. Test with `./bee up test`
 
 ---
 
@@ -261,9 +378,10 @@ Sentry: Update base image to getsentry/sentry
 1. Update version in `.env` file
 2. Check upstream changelog for breaking changes
 3. Update `docker-compose.yml` if required
-4. Run `./bee upgrade <environ>` (creates backup first)
-5. Verify with `./bee health`
-6. Commit with format: `<Service>: <version>`
+4. Run DCLint to validate changes
+5. Run `./bee upgrade <environ>` (creates backup first)
+6. Verify with `./bee health`
+7. Commit with format: `<Service>: <version>`
 
 ---
 
@@ -273,6 +391,7 @@ Sentry: Update base image to getsentry/sentry
 |------|---------|
 | Docker | Container runtime |
 | Docker-Compose | Service orchestration |
+| DCLint | Docker Compose linting (via Docker image) |
 | envsubst | Template substitution (Traefik config) |
 | curl | HTTP health checks |
 | nc | TCP/UDP health checks |
@@ -286,7 +405,7 @@ Sentry: Update base image to getsentry/sentry
 - Check `meta/bee.sh` for available helper functions
 - Check `meta/checks.sh` for health check implementations
 - Reference existing services as examples (GitLab, Sentry are comprehensive)
-- Validate YAML syntax before testing
+- Run DCLint to validate compose syntax
 - Check Traefik dashboard at `:8080` for routing issues
 
 ---

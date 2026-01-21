@@ -25,8 +25,8 @@ exclude:
   - "data"
 
 # Rule Configuration
-# Note: This project uses version: "3" for all compose files (legacy requirement)
-# and Traefik v1 labels (legacy stack)
+# Note: This project uses version: "3" for all compose files (optional, deprecated)
+# and Traefik v3 labels
 rules:
   # =============================================================================
   # Style Rules - Keep configurations consistent and maintainable
@@ -62,9 +62,9 @@ rules:
   # Exported ports must be unique to avoid conflicts
   no-duplicate-exported-ports: 2
 
-  # Warn about unbound port interfaces (0.0.0.0 exposure)
-  # Using warning level as many services intentionally expose to all interfaces
-  no-unbound-port-interfaces: 1
+  # Require explicit interface binding for ports (0.0.0.0)
+  # All ports must specify the interface to bind to
+  no-unbound-port-interfaces: 2
 
   # Container names must follow Docker naming conventions
   service-container-name-regex: 2
@@ -86,9 +86,9 @@ rules:
   # The linter recommends removing it, but we keep it for compatibility
   no-version-field: 0
 
-  # Warn if project 'name' field is missing
-  # Using warning level as this is optional enhancement
-  require-project-name-field: 1
+  # Require project 'name' field for explicit project naming
+  # All compose files must have a name field
+  require-project-name-field: 2
 
   # Ports should be quoted to prevent YAML parsing issues
   # Especially important for ports like 22:22 which could be parsed as base-60
