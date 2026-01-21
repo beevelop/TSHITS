@@ -560,20 +560,20 @@ jobs:
               docker compose -f "$COMPOSE_FILE" logs --tail=100 > "test-results/${SERVICE}-logs.txt" 2>&1 || true
             fi
             
-            # Step 5: Cleanup - AGGRESSIVE
+            # Step 5: Cleanup - AGGRESSIVE (silent to keep logs actionable)
             echo "--- Cleaning up ---"
             
             # Stop and remove containers
-            docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans > /dev/null 2>&1 || true
             
             # Remove images used by this service
             IMAGES=$(docker compose -f "$COMPOSE_FILE" config 2>/dev/null | grep -E '^\s*image:' | sed 's/.*image:\s*//' | tr -d '"' || true)
             for IMG in $IMAGES; do
-              docker rmi "$IMG" 2>/dev/null || true
+              docker rmi "$IMG" > /dev/null 2>&1 || true
             done
             
             # Aggressive system prune
-            docker system prune -af --volumes 2>/dev/null || true
+            docker system prune -af --volumes > /dev/null 2>&1 || true
             
             # Log disk space after cleanup
             DISK_AFTER=$(df / | tail -1 | awk '{print $4}')
