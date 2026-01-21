@@ -71,6 +71,7 @@ jobs:
           
           # Extract service directories using proper line-by-line reading
           SERVICES=()
+          SKIPPED_SERVICES=()
           while IFS= read -r file; do
             SERVICE_DIR=$(dirname "$file")
             SERVICE_NAME=$(basename "$SERVICE_DIR")
@@ -78,9 +79,21 @@ jobs:
             # Skip nested services (like traefik/whoami) - only include depth=2 (services/name)
             DEPTH=$(echo "$SERVICE_DIR" | tr '/' '\n' | wc -l | tr -d ' ')
             if [[ "$DEPTH" -eq 2 ]]; then
-              SERVICES+=("$SERVICE_NAME")
+              # Skip services with .ci-skip marker file
+              if [[ -f "${SERVICE_DIR}/.ci-skip" ]]; then
+                echo "Skipping ${SERVICE_NAME} (has .ci-skip marker)"
+                SKIPPED_SERVICES+=("$SERVICE_NAME")
+              else
+                SERVICES+=("$SERVICE_NAME")
+              fi
             fi
           done < <(find services -name "docker-compose.yml" -type f | sort)
+          
+          if [[ ${#SKIPPED_SERVICES[@]} -gt 0 ]]; then
+            echo ""
+            echo "=== Skipped ${#SKIPPED_SERVICES[@]} services with .ci-skip marker ==="
+            printf '%s\n' "${SKIPPED_SERVICES[@]}"
+          fi
           
           # Filter for specific service if requested
           if [[ -n "${{ github.event.inputs.specific_service }}" ]]; then
@@ -574,6 +587,9 @@ jobs:
             
             # Aggressive system prune
             docker system prune -af --volumes > /dev/null 2>&1 || true
+            
+            # Re-create traefik_default network (may have been removed by prune)
+            docker network create traefik_default 2>/dev/null || true
             
             # Log disk space after cleanup
             DISK_AFTER=$(df / | tail -1 | awk '{print $4}')
