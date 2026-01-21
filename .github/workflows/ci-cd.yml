@@ -67,21 +67,18 @@ jobs:
           
           echo "=== Discovering Docker Compose services ==="
           
-          # Find all docker-compose.yml files
-          COMPOSE_FILES=$(find services -name "docker-compose.yml" -type f | sort)
-          
-          # Extract service directories
+          # Extract service directories using proper line-by-line reading
           SERVICES=()
-          for file in $COMPOSE_FILES; do
+          while IFS= read -r file; do
             SERVICE_DIR=$(dirname "$file")
             SERVICE_NAME=$(basename "$SERVICE_DIR")
             
-            # Skip nested services (like traefik/whoami)
-            DEPTH=$(echo "$SERVICE_DIR" | tr '/' '\n' | wc -l)
+            # Skip nested services (like traefik/whoami) - only include depth=2 (services/name)
+            DEPTH=$(echo "$SERVICE_DIR" | tr '/' '\n' | wc -l | tr -d ' ')
             if [[ "$DEPTH" -eq 2 ]]; then
               SERVICES+=("$SERVICE_NAME")
             fi
-          done
+          done < <(find services -name "docker-compose.yml" -type f | sort)
           
           # Filter for specific service if requested
           if [[ -n "${{ github.event.inputs.specific_service }}" ]]; then
@@ -156,7 +153,7 @@ jobs:
       - name: Extract unique images from all compose files
         id: extract
         run: |
-          set -euo pipefail
+          set -uo pipefail
           
           echo "=== Extracting Docker images from compose files ==="
           
@@ -171,6 +168,9 @@ jobs:
             echo "Processing ${SERVICE}..."
             
             # Load environment variables if they exist
+            # Disable nounset temporarily as env files may contain $ chars in values
+            # (e.g., bcrypt hashes like $2y$10$...)
+            set +u
             if [[ -f "$ENV_FILE" ]]; then
               set -a
               source "$ENV_FILE" 2>/dev/null || true
@@ -183,11 +183,14 @@ jobs:
               source "$EXAMPLE_FILE" 2>/dev/null || true
               set +a
             fi
+            set -u
             
             # Extract images using docker compose config
+            # Use sed to trim leading/trailing whitespace from image names
             IMAGES=$(docker compose -f "$COMPOSE_FILE" config 2>/dev/null | \
                      grep -E '^\s*image:' | \
-                     sed 's/.*image:\s*//' | \
+                     sed 's/.*image://' | \
+                     sed 's/^[[:space:]]*//' | \
                      sed 's/[[:space:]]*$//' | \
                      tr -d '"' || true)
             
@@ -196,8 +199,8 @@ jobs:
             fi
           done
           
-          # Get unique images and remove empty lines
-          UNIQUE_IMAGES=$(sort -u /tmp/all_images.txt | grep -v '^$' || true)
+          # Get unique images, remove empty lines, and trim any remaining whitespace
+          UNIQUE_IMAGES=$(cat /tmp/all_images.txt | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | sort -u | grep -v '^$' || true)
           IMAGE_COUNT=$(echo "$UNIQUE_IMAGES" | grep -c . || echo "0")
           
           # Convert to JSON array
@@ -421,7 +424,7 @@ jobs:
       - name: Sequential service testing
         id: test
         run: |
-          set -euo pipefail
+          set -uo pipefail
           
           echo "=== Starting sequential Docker Compose testing ==="
           
@@ -466,6 +469,9 @@ jobs:
             TEST_DETAILS=""
             
             # Load environment variables
+            # Disable nounset temporarily as env files may contain $ chars in values
+            # (e.g., bcrypt hashes like $2y$10$...)
+            set +u
             if [[ -f "${SERVICE_DIR}/.env" ]]; then
               set -a
               source "${SERVICE_DIR}/.env" 2>/dev/null || true
@@ -476,6 +482,7 @@ jobs:
               source "${SERVICE_DIR}/.env.example" 2>/dev/null || true
               set +a
             fi
+            set -u
             
             # Set test-specific environment variables
             export SERVICE_DOMAIN="${SERVICE}.test.local"

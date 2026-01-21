@@ -42,6 +42,10 @@ get_service_dir() {
 load_service_env() {
     local service_dir="$1"
     
+    # Disable nounset (-u) temporarily as env files may contain $ characters
+    # in values that look like unset variables (e.g., bcrypt hashes like $2y$10$...)
+    set +u
+    
     # Load .env (versions)
     if [[ -f "$service_dir/.env" ]]; then
         set -a
@@ -56,8 +60,10 @@ load_service_env() {
         set +a
     fi
     
+    set -u
+    
     # Override domain for testing
-    export SERVICE_DOMAIN="${SERVICE}_test.local"
+    export SERVICE_DOMAIN="${SERVICE:-unknown}_test.local"
 }
 
 # Check if containers are healthy
