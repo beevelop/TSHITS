@@ -6,7 +6,7 @@ export SKIP_NUKE=true
 
 do_health() {
   STATUS=0
-  check_file traefik.toml || STATUS=$?
+  check_file traefik.yml || STATUS=$?
   check_file ./data/acme/ || STATUS=$?
   check_curl http://localhost:8080 "HTTP/1.1 401 Unauthorized" || STATUS=$?
   check_curl http://localhost:80 "HTTP/1.1 404 Not Found" || STATUS=$?
@@ -15,21 +15,21 @@ do_health() {
 }
 
 do_nuke() {
-  echo "📑  Deleting files and folders"
-  rm traefik.toml
+  echo "Deleting files and folders"
+  rm -f traefik.yml
   sudo rm -rf ./data/acme
 }
 
 do_prepare() {
-  echo "📜  Generating traefik.toml.tpl to traefik.toml"
-  envsubst < traefik.toml.tpl > traefik.toml
+  echo "Generating traefik.yml from traefik.yml.tpl"
+  envsubst < traefik.yml.tpl > traefik.yml
 
-  echo "🗂  Preparing folders (acme, logs, certs)"
+  echo "Preparing folders (acme, logs, certs)"
   mkdir -p ./data/acme
   mkdir -p ./data/logs
   mkdir -p ./certs
-  
-  echo "🔐  Generating self-signed certificate"
+
+  echo "Generating self-signed certificate"
   if [ ! -f ./certs/traefik.key ]; then
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
       -keyout ./certs/traefik.key -out ./certs/traefik.crt \

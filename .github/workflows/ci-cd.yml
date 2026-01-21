@@ -568,8 +568,8 @@ jobs:
           
           echo "=== Setting up test environment ==="
           
-          # Create required network for Traefik
-          docker network create traefik_default 2>/dev/null || true
+          # Note: traefik_default network is created by traefik service or on-demand
+          # Do NOT pre-create it here as it causes label conflicts with traefik's compose
           
           # Log initial disk space
           echo ""
@@ -650,6 +650,12 @@ jobs:
             
             # Set test-specific environment variables
             export SERVICE_DOMAIN="${SERVICE}.test.local"
+            
+            # Ensure traefik_default network exists for services that need it
+            # (traefik creates its own, other services use external)
+            if [[ "$SERVICE" != "traefik" ]]; then
+              docker network create traefik_default 2>/dev/null || true
+            fi
             
             # Step 1: Pull images (with timeout, quiet mode to reduce log noise)
             echo "--- Pulling images ---"
@@ -746,7 +752,10 @@ jobs:
             docker system prune -af --volumes > /dev/null 2>&1 || true
             
             # Re-create traefik_default network (may have been removed by prune)
-            docker network create traefik_default 2>/dev/null || true
+            # Skip if current service is traefik (it creates its own network)
+            if [[ "$SERVICE" != "traefik" ]]; then
+              docker network create traefik_default 2>/dev/null || true
+            fi
             
             # Log disk space after cleanup
             DISK_AFTER=$(df / | tail -1 | awk '{print $4}')
