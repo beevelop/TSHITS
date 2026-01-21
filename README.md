@@ -1,137 +1,297 @@
-# T-SHITS 👕💩
-## The Self-Hosted, Independent Technology Stack 
+# T-SHITS
 
-Around 4 years ago, I started developing and maintaining my personal, self-hosted technology stack and wrote a bunch of Docker-Compose files. I wanted to host awesome tools like GitLab, Metabase, Jira, Huginn, Monica, Bitwarden, Cabot, Confluence, OpenVPN, Nexus, Redash, Rundeck, Weblate, Zabbix and even more on my own infrastructure.
+**T**he **S**elf-**H**osted, **I**ndependent **T**echnology **S**tack (pronounced "T-SHITS")
 
-In the light of the [recent announcement](https://www.docker.com/blog/announcing-the-compose-specification/) from Docker to develop the **Compose Specification**, I like to contribute **T**he **S**elf-**H**osted, **I**ndependent **T**echnology **S**tack (pronounced **T-SHITS**) to the community.
+A curated collection of Docker Compose configurations for self-hosted services. Started in April 2020, T-SHITS provides production-ready setups for 30 popular self-hosted applications with built-in reverse proxy integration, encrypted secrets management, and automated backups.
 
-> :warning: Some of the Docker-Compose files are over 2 years old and might not work with the most recent versions of the referenced Docker images. Feel free to raise an issue, if you stumble upon something. :v:
+## Features
 
-## Prerequisites
-Make sure you have Docker and Docker-Compose installed on your machine. By
-default the T-SHITS stack uses Traefik and the DNS-01 challenge with CloudFlare
-to get Let's Encrypt certificates. So CloudFlare can be considered an optional
-prerequisite.
+- **30 Pre-configured Services** - From GitLab to Keycloak, ready to deploy
+- **Traefik Integration** - Automatic reverse proxy with Let's Encrypt SSL (CloudFlare DNS-01)
+- **Encrypted Secrets** - AES-256-CBC encryption for environment files
+- **Automated Backups** - Restic-based backup before every upgrade
+- **Standardized Structure** - Consistent patterns across all services
+- **CI/CD Tested** - GitHub Actions pipeline validates all configurations
 
-- For Traefik you need to have `envsubst` [installed (see installation
-  instructions)](https://command-not-found.com/envsubst).
-- For healthchecks you need to have [`curl`](https://command-not-found.com/curl)
-  and [`nc`](https://command-not-found.com/nc) installed.
-- For backups (automatically executed before upgrades)
-  [`restic`](https://command-not-found.com/restic) is being used.
-- [`OpenSSL`](https://command-not-found.com/openssl) is used to encrypt /
-  decrypt ENV files.
+## Quick Start
 
-## Installation
-
-To use the services and start spinning up your own T-SHITS services, you just need to clone (or fork if you like to) this repo:
 ```bash
+# Clone the repository
 git clone https://github.com/beevelop/TSHITS.git
+cd TSHITS
+
+# Configure your environment
+echo "production" > .bee.environ
+echo "your-master-password" > .bee.pass
+
+# Deploy a service
+cd services/gitlab
+cp .env.example .env.production
+# Edit .env.production with your settings
+./bee up production
 ```
 
-### Configuring an environment (optionally with encryption)
-1. Create a `.bee.pass` file inside the T-SHITS root folder containing the environment's master key / pass (e.g. `Swordfish`).
-2. Create a `.bee.environ` file inside the T-SHITS root folder containing the environment's slug (e.g. `foobar`).
+## Prerequisites
 
-Alternatively you can set both configurations using normal ENVs: `BEEPASS` and
-`ENVIRON`. The encryption uses `openssl aes-256-cbc` to encrypt / decrypt the
-values in the respective `.env.example` file.
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| Docker | Container runtime | [docker.com](https://docs.docker.com/get-docker/) |
+| Docker Compose | Service orchestration | [docs.docker.com](https://docs.docker.com/compose/install/) |
+| envsubst | Template substitution | [command-not-found.com](https://command-not-found.com/envsubst) |
+| curl | HTTP health checks | [command-not-found.com](https://command-not-found.com/curl) |
+| nc (netcat) | TCP/UDP health checks | [command-not-found.com](https://command-not-found.com/nc) |
+| restic | Backup management | [command-not-found.com](https://command-not-found.com/restic) |
+| openssl | Secret encryption | [command-not-found.com](https://command-not-found.com/openssl) |
+
+**Optional:** CloudFlare account for DNS-01 Let's Encrypt challenge (used by Traefik).
+
+## Project Structure
+
+```
+TSHITS/
+├── .bee.environ          # Environment name (e.g., "production")
+├── .bee.pass             # Master encryption key
+├── meta/
+│   ├── bee.sh            # Core helper functions
+│   └── checks.sh         # Health check functions
+├── housekeeping/
+│   ├── encrypt_all.sh    # Encrypt all service environments
+│   └── prune_backups.sh  # Prune all service backups
+└── services/
+    └── <service>/
+        ├── bee                   # Service helper script
+        ├── docker-compose.yml    # Compose configuration
+        ├── .env                  # Version tags (committed)
+        ├── .env.<environ>        # Environment secrets (gitignored)
+        ├── .env.example          # Example configuration (committed)
+        └── data/                 # Persistent data (gitignored)
+```
 
 ## Usage
 
-Every service has a helper `./bee.sh` file. Just navigate to your favorite service and execute one of the helper functions:
-```
-Usage: ./bee COMMAND [options]
-
-Commands:
-    prepare   Prepares the service for launch (e.g. folders, files, configs,...)
-    launch    Launches the service (overwrite with do_launch)
-    health    Checks if the service is running properly
-    up [ENV]  Prepares, launches and checks the service for the provided ENV
-
-Helpers:
-    encrypt [ENV]  Encrypts the .env file for the provided ENV
-    decrypt [ENV]  Decrypts the .env file for the provided ENV
-    upgrade   Upgrade a service (combines backup and up)
-
-DANGERZONE (don't mess with this shit... seriously):
-    nuke      Kills the service and removes all traces (image, files, configs,...)
-```
+Navigate to any service directory and use the `bee` helper:
 
 ```bash
-# navigate to the service's subfolder
-cd services/gitlab
-
-# check the .env and .env.example (and other env files)
-# customize them to your needs and please swap the default
-# passwords / secrets / ...
-cp .env.example .env.foobar
-
-# foobar is the name of the environment
-./bee up foobar
+cd services/<service>
+./bee <command> [environment]
 ```
 
-## Architecture
-All services have an individual `.env` file to manage the "general" ENVs (like
-Docker image version, etc.). Additionally there is `.env.example` for every
-environment you want to manage. They contain environment specific
-configurations. One standard ENV (that is being used in the `bee.sh` helper) is
-the `SERVICE_DOMAIN` which is most often used to expose the services via
-Traefik.
+### Commands
 
-T-SHITS stack uses Traefik by default and all services are configured to work
-with Traefik **v1**.
+| Command | Description |
+|---------|-------------|
+| `up <env>` | Full deployment: prepare, launch, and health check |
+| `prepare` | Create folders, generate configs |
+| `launch` | Pull images and start containers |
+| `health` | Run health checks |
+| `backup` | Backup data to `./backups/` via restic |
+| `upgrade` | Backup + up (safe upgrade) |
+| `logs <env>` | Tail container logs |
+| `down` | Stop containers |
+| `encrypt <env>` | Encrypt `.env.<env>` to `.enc.env.<env>` |
+| `decrypt <env>` | Decrypt `.enc.env.<env>` to `.env.<env>` |
+| `nuke` | Remove everything including data (**dangerous**) |
 
-## Services
-- **Bitwarden**: Self-hosted password manager with native apps for all major operating systems.
-- **Cabot**: Self-hosted, easily-deployable monitoring and alerts service - like a lightweight PagerDuty
-- **Confluence**: Atlassian's well-known documentation and knowledge management software.
-- **crowd**: Atlassian's Single Sign-On (SSO) solution
-- **Dependency-Track**: Analyse your dependencies for Security issues and license compliance.
-- **Directus**: Quickly put a REST-API / SDK on top of your database.
-- **Duckling**: Quite specific for NLP-enthusiast, but it enables you to parse text into structured data.
-- **Gitlab**: Host your own VCS and CI / CD environment through GitLab.
-- **Graylog**: In combination with Elasticsearch it enables you to log any kind of data. Most often used for log aggregation.
-- **Huginn**: The self-hosted alternative to things like IFTTT or Zapier.
-- **Jira**: Atlassian's task / project / everything management monster (meant in a positive way 😉).
-- **Keycloak**: Your own authentication / authorization provider. With OpenID, OAuth, LDAP and ActiveDirectory support.
-- **Metabase**: Analyse any kind of database and build beautiful dashboards. Makes SQL-queries accessible to non-techies.
-- **Minio**: Self-hosted S3 alternative.
-- **Monica**: Personal CRM to remember staying in touch with the people you like (but sometimes forget).
-- **MySQL**: Good ol' MySQL database
-- **Nexus**: Sonatype's Nexus can be used as binary store, self-hosted package registry, etc.
-- **OpenVPN**: Your own OpenVPN to secure your connection.
-- **PHPMyAdmin**: Enables you to administer MySQL databases through an easy UI.
-- **Redash**: Similar to Metbase (enables you to analyze data), but a bit more "technical".
-- **Registry**: Host your own Docker registry.
-- **Rundeck**: Automate all the things. The "CI / CD for infrastructure that is not involved in the development process".
-- **Sentry**: Log all exceptions / errors in your application / services / ... (e.g. you can log GitLab exceptions to Sentry too)
-- **Shields**: Self-hosted version to get beautiful badges for your repositories.
-- **Sonarqube**: Analyze your development sources.
-- **Statping**: Status Page & Monitoring Server
-- **Traefik**: Load-balancer / reverse-proxy and "certificate manager" in the case of **T-SHITS**.
-- **Tus**: Upload services on steroids.
-- **Weblate**: Translate all the things with Weblate.
-- **Zabbix**: High-end monitoring for everything with a nice UI.
+### Example: Deploying GitLab
+
+```bash
+cd services/gitlab
+
+# Create environment file from example
+cp .env.example .env.production
+
+# Edit with your domain and secrets
+vim .env.production
+
+# Deploy
+./bee up production
+
+# Check status
+./bee health
+```
+
+## Available Services
+
+| Service | Description |
+|---------|-------------|
+| **bitwarden** | Password manager with native apps for all platforms |
+| **cabot** | Monitoring and alerts (lightweight PagerDuty alternative) |
+| **confluence** | Atlassian documentation and knowledge management |
+| **crowd** | Atlassian Single Sign-On (SSO) |
+| **dependency-track** | Dependency security and license compliance analysis |
+| **directus** | REST API/SDK layer for any database |
+| **duckling** | NLP text-to-structured-data parser |
+| **gitlab** | Git hosting with built-in CI/CD |
+| **graylog** | Log aggregation with Elasticsearch |
+| **huginn** | Self-hosted IFTTT/Zapier alternative |
+| **jira** | Atlassian project and task management |
+| **keycloak** | Authentication provider (OpenID, OAuth, LDAP) |
+| **metabase** | Database analytics and dashboards |
+| **minio** | S3-compatible object storage |
+| **monica** | Personal CRM for managing relationships |
+| **mysql** | MySQL database server |
+| **nexus** | Sonatype binary repository and package registry |
+| **openvpn** | OpenVPN server |
+| **phpmyadmin** | MySQL web administration |
+| **redash** | Data analysis and visualization |
+| **registry** | Private Docker registry |
+| **rundeck** | Infrastructure automation and runbook execution |
+| **sentry** | Application error tracking and monitoring |
+| **shields** | Badge generation service |
+| **sonarqube** | Code quality and security analysis |
+| **statping** | Status page and uptime monitoring |
+| **traefik** | Reverse proxy and load balancer with Let's Encrypt |
+| **tus** | Resumable file upload server |
+| **weblate** | Translation management platform |
+| **zabbix** | Enterprise monitoring solution |
+
+## Configuration
+
+### Environment Files
+
+Each service uses two types of environment files:
+
+**.env** (committed) - Version tags and non-sensitive defaults:
+```bash
+GITLAB_VERSION=16.0.0
+POSTGRES_TAG=15-alpine
+```
+
+**.env.example** (committed) - Template for environment-specific secrets:
+```bash
+SERVICE_DOMAIN=gitlab.example.com
+DB_USER=bee
+DB_PASS=Swordfish
+SMTP_HOST=smtp.example.com
+```
+
+**.env.<environ>** (gitignored) - Your actual secrets:
+```bash
+SERVICE_DOMAIN=gitlab.yourdomain.com
+DB_USER=gitlab
+DB_PASS=your-secure-password
+SMTP_HOST=mail.yourdomain.com
+```
+
+### Encryption
+
+Encrypt your environment files for secure storage:
+
+```bash
+# Set up master password
+echo "your-master-password" > .bee.pass
+
+# Encrypt a service's environment file
+cd services/gitlab
+./bee encrypt production
+# Creates .enc.env.production
+
+# Decrypt when needed
+./bee decrypt production
+# Restores .env.production
+```
+
+Alternatively, use environment variables:
+```bash
+export BEEPASS="your-master-password"
+export ENVIRON="production"
+```
+
+### Traefik Integration
+
+All services are pre-configured for Traefik v1 reverse proxy. To set up Traefik:
+
+```bash
+cd services/traefik
+
+# Create environment file
+cp .env.example .env.production
+# Configure your CloudFlare credentials and domain
+
+# Generate traefik.toml from template
+envsubst < traefik.toml.tpl > traefik.toml
+
+# Start Traefik
+./bee up production
+```
+
+Services connect via the `traefik_default` external network and expose themselves using Traefik labels:
+
+```yaml
+labels:
+  - "traefik.enable=true"
+  - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+  - "traefik.docker.network=traefik_default"
+  - "traefik.port=8080"
+```
+
+## Backups
+
+Backups are managed via [restic](https://restic.net/) and stored locally in each service's `./backups/` directory.
+
+```bash
+# Manual backup
+cd services/gitlab
+./bee backup
+
+# Upgrade with automatic backup
+./bee upgrade production
+
+# Prune old backups (from repo root)
+./housekeeping/prune_backups.sh
+```
+
+**Note:** Local backups protect against failed upgrades. For disaster recovery, sync backups to remote storage using restic's built-in support for S3, B2, SFTP, and other backends.
+
+## Health Checks
+
+Each service implements health checks in its `bee` script:
+
+```bash
+# Check service health
+./bee health
+```
+
+Available check functions in `meta/checks.sh`:
+
+| Function | Usage |
+|----------|-------|
+| `check_traefik <host> <expected>` | HTTP check via Traefik |
+| `check_curl <url> <expected>` | Direct HTTP check |
+| `check_tcp <host> <port>` | TCP port check |
+| `check_udp <host> <port>` | UDP port check |
+| `check_file <path>` | File existence check |
+
+## CI/CD
+
+The repository includes a GitHub Actions pipeline that:
+
+1. **Validates** all docker-compose.yml files (YAML syntax)
+2. **Extracts** and lists all Docker images used
+3. **Scans** images for CVEs using Trivy (informational)
+4. **Tests** each service with Docker Compose
+
+Services can opt out of CI testing by adding a `.ci-skip` file.
+
+See [.github/CI-CD.md](.github/CI-CD.md) for detailed documentation.
 
 ## Notes
-- Most services use `example.com`, `smtp.example.com`, `bee` (username) or
-  `Swordfish` (dummy password) as example values. All tokens / API keys, etc.
-  are in the respective format (length / the way they where generated).
-- Backups are stored in the **local** folder `./backup` of each services.
-  Consider it a simple example to recover from a failed upgrade. You backups
-  should usually be synced to a different store / machine to make sure you won't
-  loose the data. Restic has great support for different storage providers.
-- All services are configure to use the restart policy `unless-stopped`. This
-  way containers should stay up if the fail and should start automatically if
-  the host system restarts.
-- Every service has a logging limit (JSON logging) configured. This way your
-  hard drive should not run out of disk space if a service decides to run into a
-  logging rampage.
-- Most of the services already use Docker volumes. They are preferred over local
-  volume mounts.
+
+- **Placeholder Values:** Examples use `example.com`, `bee` (username), and `Swordfish` (password)
+- **Traefik Version:** Uses Traefik v1 (intentional for legacy compatibility)
+- **Restart Policy:** All containers use `restart: unless-stopped`
+- **Logging Limits:** JSON logging with `max-size: 500k` and `max-file: 50`
+- **Docker Compose:** All files use `version: "3"`
 
 ## Contributing
-Pull requests are highly welcomed. Feel free to keep the images up-to-date, add
-new configuration capabilities, introduce service specific READMEs and notes.
-Just spread the love of using simple Docker-Compose files ❤️
+
+Pull requests are welcome! Please:
+
+- Follow existing docker-compose patterns
+- Include `.env.example` with placeholder values
+- Implement health checks in the `bee` script
+- Test with `./bee up test` before submitting
+
+## License
+
+[Apache License 2.0](LICENSE)
