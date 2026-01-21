@@ -1,20 +1,9 @@
-version: '3'
+version: "3"
+name: graylog
 services:
-  mongodb:
-    image: mongo:${MONGO_VERSION}
-    restart: unless-stopped
-    networks: [ graylog ]
-    volumes:
-      - mongo_data:/data/db
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-  
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION}
-    networks: [ graylog ]
+    container_name: graylog-elasticsearch
     volumes:
       - es_data:/usr/share/elasticsearch/data
     environment:
@@ -24,22 +13,25 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
+    networks:
+      - graylog
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
 
   graylog:
     image: graylog/graylog:${GRAYLOG_VERSION}
-    restart: unless-stopped
-    networks: [ graylog, traefik ]
-    depends_on: [ mongodb, elasticsearch ]
+    container_name: graylog
+    depends_on:
+      - elasticsearch
+      - mongodb
     volumes:
       - graylog_journal:/usr/share/graylog/data/journal
     environment:
@@ -57,39 +49,56 @@ services:
       - GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME=${GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME}
       - GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD=${GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD}
       - GRAYLOG_TIMEZONE=Europe/Berlin
-    links:
-      - mongodb:mongo
-      - elasticsearch
     ports:
       # Syslog TCP
-      - 514:514
+      - "0.0.0.0:514:514"
       # Syslog UDP
-      - 514:514/udp
+      - "0.0.0.0:514:514/udp"
+      - "0.0.0.0:5555:5555/udp"
+      - "0.0.0.0:5555:5555/tcp"
       # GELF TCP
-      - 12201:12201
+      - "0.0.0.0:12201:12201"
       # GELF UDP
-      - 12201:12201/udp
-      - 5555:5555/udp
-      - 5555:5555/tcp
+      - "0.0.0.0:12201:12201/udp"
+    networks:
+      - graylog
+      - traefik
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.backend=graylog"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
+      - "traefik.http.routers.graylog.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.graylog.entrypoints=websecure"
+      - "traefik.http.routers.graylog.tls=true"
+      - "traefik.http.routers.graylog.tls.certresolver=letsencrypt"
+      - "traefik.http.services.graylog.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_default"
-      - "traefik.port=9000"
+
+  mongodb:
+    image: mongo:${MONGO_VERSION}
+    container_name: graylog-mongodb
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - graylog
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
 
-volumes:
-  mongo_data:
-  es_data:
-  graylog_journal:
-
 networks:
   graylog:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  mongo_data:
+  es_data:
+  graylog_journal:

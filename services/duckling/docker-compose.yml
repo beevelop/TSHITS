@@ -1,19 +1,25 @@
 version: "3"
+name: duckling
 services:
   duckling:
     image: rasa/duckling:${DUCKLING_VERSION}
+    container_name: duckling
+    networks:
+      - traefik
     restart: unless-stopped
-    networks: [traefik]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=duckling"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=8000"
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.duckling.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.duckling.entrypoints=websecure"
+      - "traefik.http.routers.duckling.tls=true"
+      - "traefik.http.routers.duckling.tls.certresolver=letsencrypt"
+      - "traefik.http.services.duckling.loadbalancer.server.port=8000"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   traefik:

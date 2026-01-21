@@ -1,21 +1,27 @@
 version: "3"
+name: nexus
 services:
   nexus:
-    container_name: nexus
     image: sonatype/nexus3:${NEXUS_VERSION}
-    networks: [ traefik ]
+    container_name: nexus
     volumes:
-      - "./data/nexus/:/nexus-data"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=8081"
+      - ./data/nexus/:/nexus-data
+    networks:
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nexus.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.nexus.entrypoints=websecure"
+      - "traefik.http.routers.nexus.tls=true"
+      - "traefik.http.routers.nexus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.nexus.loadbalancer.server.port=8081"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   traefik:

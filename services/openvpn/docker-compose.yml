@@ -1,34 +1,34 @@
-version: '3'
+version: "3"
+name: openvpn
 services:
-  openvpn_tcp:
-    cap_add:
-     - NET_ADMIN
-    image: kylemanna/openvpn:${OPENVPN_VERSION}
-    container_name: openvpn-tcp
-    networks: [openvpn]
-    ports: ["21:1194"]
-    restart: unless-stopped
-    volumes: ["./data/openvpn-tcp/conf:/etc/openvpn"]
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-
   openvpn:
-    cap_add:
-     - NET_ADMIN
     image: kylemanna/openvpn:${OPENVPN_VERSION}
     container_name: openvpn
-    networks: [openvpn]
-    ports: ["53:1194/udp"]
+    volumes: [ ./data/openvpn/conf:/etc/openvpn ]
+    ports: [ "0.0.0.0:53:1194/udp" ]
+    networks: [ openvpn ]
     restart: unless-stopped
-    volumes: ["./data/openvpn/conf:/etc/openvpn"]
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    cap_add:
+      - NET_ADMIN
+  openvpn_tcp:
+    image: kylemanna/openvpn:${OPENVPN_VERSION}
+    container_name: openvpn-tcp
+    volumes: [ ./data/openvpn-tcp/conf:/etc/openvpn ]
+    ports: [ "0.0.0.0:21:1194" ]
+    networks: [ openvpn ]
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    cap_add:
+      - NET_ADMIN
 
 networks:
   openvpn:

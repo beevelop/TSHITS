@@ -1,40 +1,18 @@
 version: "3"
+name: gitlab
 services:
-  gitlab:
-    image: sameersbn/gitlab:${GITLAB_VERSION}
-    env_file: gitlab.env
-    environment:
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
-      DB_NAME: ${DB_NAME}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=80"
-    links:
-      - redis:redisio
-      - database:postgresql
-    depends_on: [database,redis]
-    networks: [traefik,gitlab]
-    ports: [ "${GIT_PORT}:22" ]
-    volumes: [ "./data/gitlab/:/home/git/data" ]
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-
   database:
     image: sameersbn/postgresql:${POSTGRES_TAG}
-    volumes: [ "./data/postgres:/var/lib/postgresql" ]
-    networks: [gitlab]
+    container_name: gitlab-postgres
+    volumes:
+      - ./data/postgres:/var/lib/postgresql
     environment:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
       DB_EXTENSION: pg_trgm
+    networks:
+      - gitlab
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -42,11 +20,47 @@ services:
         max-size: "500k"
         max-file: "50"
 
+  gitlab:
+    image: sameersbn/gitlab:${GITLAB_VERSION}
+    container_name: gitlab
+    depends_on:
+      - database
+      - redis
+    volumes:
+      - ./data/gitlab/:/home/git/data
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+    env_file: gitlab.env
+    ports:
+      - "0.0.0.0:${GIT_PORT}:22"
+    networks:
+      - traefik
+      - gitlab
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitlab.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.gitlab.entrypoints=websecure"
+      - "traefik.http.routers.gitlab.tls=true"
+      - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_default"
+
   redis:
     image: redis:7-alpine
+    container_name: gitlab-redis
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - gitlab
     command: redis-server --protected-mode no
-    volumes: [ "./data/redis:/data" ]
-    networks: [gitlab]
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -55,7 +69,7 @@ services:
         max-file: "50"
 
 networks:
-  gitlab: 
+  gitlab:
   traefik:
     external:
       name: traefik_default

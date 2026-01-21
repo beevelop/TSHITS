@@ -1,24 +1,11 @@
 version: "3"
+name: keycloak
 services:
-  postgres:
-    image: postgres:${POSTGRES_VERSION}
-    volumes: [ "postgres_data:/var/lib/postgresql/data" ]
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASS}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-    networks: [ keycloak ]
-    restart: unless-stopped
- 
   keycloak:
     image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
-    restart: unless-stopped
-    command: start
+    container_name: keycloak
+    depends_on:
+      - postgres
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
@@ -29,25 +16,48 @@ services:
       KC_PROXY: edge
       KC_HOSTNAME: ${SERVICE_DOMAIN}
       KC_HTTP_ENABLED: "true"
-    networks: [ keycloak, traefik ]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=keycloak"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=8080"
+    networks:
+      - keycloak
+      - traefik
+    command: start
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-    depends_on: [ postgres ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik_default"
 
-volumes:
-  postgres_data:
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: keycloak-postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+    networks:
+      - keycloak
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
 
 networks:
   keycloak:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  postgres_data:

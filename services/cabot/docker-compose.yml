@@ -1,43 +1,18 @@
 version: "3"
+name: cabot
 services:
-  web:
-    image: cabotapp/cabot:${CABOT_VERSION}
-    command: sh -c "cabot migrate && gunicorn cabot.wsgi:application -b 0.0.0.0:5000 --workers=5"
-    env_file: [.env]
-    networks: [cabot,traefik]
-    expose: [5000]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=5000"
-    depends_on: [postgres, rabbitmq]
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-
-  worker:
-    image: cabotapp/cabot:${CABOT_VERSION}
-    command: celery worker -A cabot
-    env_file: [.env]
-    networks: [cabot]
-    depends_on: [web, postgres, rabbitmq]
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-
   beat:
     image: cabotapp/cabot:${CABOT_VERSION}
+    container_name: cabot-beat
+    depends_on:
+      - postgres
+      - rabbitmq
+      - web
+    env_file:
+      - .env
+    networks:
+      - cabot
     command: celery beat -A cabot
-    env_file: [.env]
-    networks: [cabot]
-    depends_on: [web, postgres, rabbitmq]
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -47,10 +22,13 @@ services:
 
   postgres:
     image: postgres:${POSTGRES_TAG}
-    networks: [cabot]
+    container_name: cabot-postgres
+    volumes:
+      - ./data/postgres/:/var/lib/postgresql/data
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
-    volumes: ["./data/postgres/:/var/lib/postgresql/data"]
+    networks:
+      - cabot
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -60,7 +38,57 @@ services:
 
   rabbitmq:
     image: rabbitmq:${RABBITMQ_TAG}
-    networks: [cabot]
+    container_name: cabot-rabbitmq
+    networks:
+      - cabot
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  web:
+    image: cabotapp/cabot:${CABOT_VERSION}
+    container_name: cabot-web
+    depends_on:
+      - postgres
+      - rabbitmq
+    env_file:
+      - .env
+    ports:
+      - "0.0.0.0:5000:5000"
+    networks:
+      - cabot
+      - traefik
+    command: sh -c "cabot migrate && gunicorn cabot.wsgi:application -b 0.0.0.0:5000 --workers=5"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cabot.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.cabot.entrypoints=websecure"
+      - "traefik.http.routers.cabot.tls=true"
+      - "traefik.http.routers.cabot.tls.certresolver=letsencrypt"
+      - "traefik.http.services.cabot.loadbalancer.server.port=5000"
+      - "traefik.docker.network=traefik_default"
+
+  worker:
+    image: cabotapp/cabot:${CABOT_VERSION}
+    container_name: cabot-worker
+    depends_on:
+      - postgres
+      - rabbitmq
+      - web
+    env_file:
+      - .env
+    networks:
+      - cabot
+    command: celery worker -A cabot
     restart: unless-stopped
     logging:
       driver: "json-file"

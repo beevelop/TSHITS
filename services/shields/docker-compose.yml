@@ -1,12 +1,15 @@
 version: "3"
+name: shields
 services:
   shields:
     image: beevelop/shields:${SHIELDS_TAG}
+    container_name: shields
     environment:
       GH_CLIENT_ID: ${GH_CLIENT_ID}
       GH_CLIENT_SECRET: ${GH_CLIENT_SECRET}
       INFOSITE: http://${SERVICE_DOMAIN}
-    networks: [shields]
+    networks:
+      - shields
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -15,21 +18,27 @@ services:
         max-file: "50"
 
   varnish:
-    image: beevelop/varnish
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=shields"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-    links: ["shields:backend"]
-    networks: [shields,traefik]
-    depends_on: [shields]
+    image: beevelop/varnish:${VARNISH_TAG}
+    container_name: shields-varnish
+    depends_on:
+      - shields
+    networks:
+      - shields
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.shields.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.shields.entrypoints=websecure"
+      - "traefik.http.routers.shields.tls=true"
+      - "traefik.http.routers.shields.tls.certresolver=letsencrypt"
+      - "traefik.http.services.shields.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   shields:

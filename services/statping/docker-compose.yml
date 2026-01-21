@@ -1,21 +1,29 @@
 version: "3"
+name: statping
 services:
-  statping:
-    image: adamboutcher/statping-ng:${STATPING_VERSION}
+  postgres_statping:
+    image: postgres:${POSTGRES_TAG}
+    container_name: statping-postgres
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: Swordfish
+      POSTGRES_USER: statping
+      POSTGRES_DB: statping
+    networks:
+      - statping
     restart: unless-stopped
-    networks: [ traefik, statping ]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=statping"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=8080"
-    depends_on:
-      - postgres_statping
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+
+  statping:
+    image: adamboutcher/statping-ng:${STATPING_VERSION}
+    container_name: statping
+    depends_on:
+      - postgres_statping
     volumes:
       - ./data/app:/app
     environment:
@@ -24,22 +32,23 @@ services:
       DB_USER: statping
       DB_PASS: Swordfish
       DB_DATABASE: statping
-
-  postgres_statping:
-    image: postgres:${POSTGRES_TAG}
+    networks:
+      - traefik
+      - statping
     restart: unless-stopped
-    networks: [ statping ]
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    environment:
-      POSTGRES_PASSWORD: Swordfish
-      POSTGRES_USER: statping
-      POSTGRES_DB: statping
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.statping.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.statping.entrypoints=websecure"
+      - "traefik.http.routers.statping.tls=true"
+      - "traefik.http.routers.statping.tls.certresolver=letsencrypt"
+      - "traefik.http.services.statping.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   statping:

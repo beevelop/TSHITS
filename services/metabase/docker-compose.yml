@@ -1,23 +1,17 @@
 version: "3"
+name: metabase
 services:
-  metabase:
-    image: metabase/metabase:${METABASE_VERSION}
+  database:
+    image: postgres:${POSTGRES_TAG}
+    container_name: metabase-postgres
+    volumes:
+      - ./data/postgres/:/var/lib/postgresql/data
     environment:
-      MB_JETTY_HOST: 0.0.0.0    
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${DB_NAME}
-      MB_DB_PORT: 5432
-      MB_DB_USER: ${DB_USER}
-      MB_DB_PASS: ${DB_PASS}
-      MB_DB_HOST: database
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=3000"
-    networks: [metabase,traefik]
-    links: [database]
-    depends_on: [database]
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    networks:
+      - metabase
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -25,20 +19,36 @@ services:
         max-size: "500k"
         max-file: "50"
 
-  database:
-    image: postgres:${POSTGRES_TAG}
+  metabase:
+    image: metabase/metabase:${METABASE_VERSION}
+    container_name: metabase
+    depends_on:
+      - database
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_PASSWORD: ${DB_PASS}
-    networks: [metabase]
-    volumes: ["./data/postgres/:/var/lib/postgresql/data"]
+      MB_JETTY_HOST: 0.0.0.0
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${DB_NAME}
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${DB_USER}
+      MB_DB_PASS: ${DB_PASS}
+      MB_DB_HOST: database
+    networks:
+      - metabase
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.metabase.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.metabase.entrypoints=websecure"
+      - "traefik.http.routers.metabase.tls=true"
+      - "traefik.http.routers.metabase.tls.certresolver=letsencrypt"
+      - "traefik.http.services.metabase.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   metabase:

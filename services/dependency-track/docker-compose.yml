@@ -1,26 +1,32 @@
 version: "3"
-
+name: dependency-track
 services:
   dtrack:
     image: dependencytrack/bundled:${DEPENDENCY_TRACK_VERSION}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=dtrack"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=8080"
+    container_name: dtrack
+    volumes:
+      - dtrack:/data
+    networks:
+      - traefik
     restart: unless-stopped
-    volumes: [ dtrack:/data ]
-    networks: [ traefik ]
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-
-volumes:
-  dtrack:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dtrack.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.dtrack.entrypoints=websecure"
+      - "traefik.http.routers.dtrack.tls=true"
+      - "traefik.http.routers.dtrack.tls.certresolver=letsencrypt"
+      - "traefik.http.services.dtrack.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  dtrack:

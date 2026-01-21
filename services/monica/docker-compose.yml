@@ -1,39 +1,48 @@
 version: "3"
+name: monica
 services:
   monica:
     image: monica:${MONICA_VERSION}
-    env_file: monica.env
+    container_name: monica
+    depends_on:
+      - mysql
     environment:
       APP_URL: https://${SERVICE_DOMAIN}
       DB_HOST: mysql
       DB_DATABASE: ${DB_NAME}
       DB_USERNAME: ${DB_USER}
       DB_PASSWORD: ${DB_PASS}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=monica"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=80"
-    links: [mysql]
-    depends_on: [mysql]
-    networks: [traefik,monica]
+    env_file: monica.env
+    networks:
+      - traefik
+      - monica
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-  
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.monica.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.monica.entrypoints=websecure"
+      - "traefik.http.routers.monica.tls=true"
+      - "traefik.http.routers.monica.tls.certresolver=letsencrypt"
+      - "traefik.http.services.monica.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_default"
+
   mysql:
     image: mysql:${MYSQL_TAG}
+    container_name: monica-mysql
+    volumes:
+      - ./data/mysql/:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-    volumes: ["./data/mysql/:/var/lib/mysql"]
-    networks: [monica]
+    networks:
+      - monica
     restart: unless-stopped
     logging:
       driver: "json-file"

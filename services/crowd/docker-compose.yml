@@ -1,51 +1,62 @@
 version: "3"
+name: crowd
 services:
   crowd:
     image: atlassian/crowd:${CROWD_VERSION}
     container_name: crowd
-    networks: [ crowd, traefik ]
-    volumes: [ "crowd_data:/var/atlassian/application-data/crowd/" ]
-    depends_on: [ postgresql ]
+    depends_on:
+      - postgresql
+    volumes:
+      - crowd_data:/var/atlassian/application-data/crowd/
     environment:
       - "ATL_PROXY_NAME=${SERVICE_DOMAIN}"
       - "ATL_PROXY_PORT=443"
       - "ATL_TOMCAT_SCHEME=https"
       - "ATL_TOMCAT_SECURE=true"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=8095"
+    networks:
+      - crowd
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crowd.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.crowd.entrypoints=websecure"
+      - "traefik.http.routers.crowd.tls=true"
+      - "traefik.http.routers.crowd.tls.certresolver=letsencrypt"
+      - "traefik.http.services.crowd.loadbalancer.server.port=8095"
+      - "traefik.docker.network=traefik_default"
 
   postgresql:
     image: postgres:${POSTGRES_TAG}
-    networks: [crowd]
+    container_name: crowd-postgres
+    volumes:
+      - crowd_postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
       POSTGRES_DB: ${POSTGRES_DB}
-    volumes: [ "crowd_postgres:/var/lib/postgresql/data" ]
+    networks:
+      - crowd
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-
-volumes:
-  crowd_data:
-    external: false
-  crowd_postgres:
-    external: false
 
 networks:
   crowd:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  crowd_data:
+    external: false
+  crowd_postgres:
+    external: false

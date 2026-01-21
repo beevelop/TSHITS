@@ -1,33 +1,36 @@
 version: "3"
+name: registry
 services:
   registry:
     image: registry:${REGISTRY_VERSION}
+    container_name: registry
+    volumes:
+      - ./data/reg:/var/lib/registry
+      - ./data/certs:/certs
+      - ./auth:/auth
     environment:
       REGISTRY_AUTH: htpasswd
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
       REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
       REGISTRY_STORAGE_DELETE_ENABLED: true
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=5000"
-    volumes:
-      - "./data/reg:/var/lib/registry"
-      - "./data/certs:/certs"
-      - "./auth:/auth"
-    networks: [traefik]
+    networks:
+      - traefik
     restart: unless-stopped
     logging:
-        driver: "json-file"
-        options:
-          max-size: "500k"
-          max-file: "50"
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.registry.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.registry.entrypoints=websecure"
+      - "traefik.http.routers.registry.tls=true"
+      - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
+      - "traefik.http.services.registry.loadbalancer.server.port=5000"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   traefik:
     external:
       name: traefik_default
-
-
-
-

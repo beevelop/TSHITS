@@ -1,31 +1,38 @@
 version: "3"
+name: rundeck
 services:
   rundeck:
     image: jordan/rundeck:${RUNDECK_VERSION}
+    container_name: rundeck
+    volumes:
+      - ./data/etc:/etc/rundeck
+      - ./data/var:/var/rundeck
+      - ./data/plugins:/opt/rundeck-plugins
+      - ./data/var-log:/var/log/rundeck
+      - ./data/ssh:/var/lib/rundeck/.ssh
+      - ./data/mysql:/var/lib/mysql
+      - ./data/logs:/var/lib/rundeck/logs
+      - ./data/var-storage:/var/lib/rundeck/var/storage
     environment:
       EXTERNAL_SERVER_URL: "https://${SERVICE_DOMAIN}"
       RUNDECK_ADMIN_PASSWORD: "${RUNDECK_ADMIN_PASSWORD}"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=4440"
-    volumes:
-      - "./data/etc:/etc/rundeck"
-      - "./data/var:/var/rundeck"
-      - "./data/plugins:/opt/rundeck-plugins"
-      - "./data/var-log:/var/log/rundeck"
-      - "./data/ssh:/var/lib/rundeck/.ssh"
-      - "./data/mysql:/var/lib/mysql"
-      - "./data/logs:/var/lib/rundeck/logs"
-      - "./data/var-storage:/var/lib/rundeck/var/storage"
-    networks: [rundeck,traefik]
+    networks:
+      - rundeck
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rundeck.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.rundeck.entrypoints=websecure"
+      - "traefik.http.routers.rundeck.tls=true"
+      - "traefik.http.routers.rundeck.tls.certresolver=letsencrypt"
+      - "traefik.http.services.rundeck.loadbalancer.server.port=4440"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   rundeck:

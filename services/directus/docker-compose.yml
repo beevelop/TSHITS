@@ -1,7 +1,14 @@
 version: "3"
+name: directus
 services:
   directus:
     image: directus/directus:${DIRECTUS_VERSION}
+    container_name: directus
+    depends_on:
+      - mysql
+    volumes:
+      - ./data/directus/uploads:/directus/uploads
+      - ./data/directus/extensions:/directus/extensions
     environment:
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
@@ -12,33 +19,36 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASS}
       PUBLIC_URL: https://${SERVICE_DOMAIN}
-    links: [mysql]
-    depends_on: [mysql]
-    networks: [directus,traefik]
-    volumes:
-      - "./data/directus/uploads:/directus/uploads"
-      - "./data/directus/extensions:/directus/extensions"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=8055"
+    networks:
+      - directus
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-  
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.directus.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.directus.entrypoints=websecure"
+      - "traefik.http.routers.directus.tls=true"
+      - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.directus.loadbalancer.server.port=8055"
+      - "traefik.docker.network=traefik_default"
+
   mysql:
     image: mysql:${MYSQL_TAG}
+    container_name: directus-mysql
+    volumes:
+      - ./data/mysql/:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-    volumes: ["./data/mysql/:/var/lib/mysql"]
-    networks: [directus]
+    networks:
+      - directus
     restart: unless-stopped
     logging:
       driver: "json-file"

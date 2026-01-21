@@ -1,37 +1,38 @@
-version: '3'
+version: "3"
+name: redash
 services:
-  server:
-    image: redash/redash:${REDASH_VERSION}
-    command: server
-    networks: [redash]
-    depends_on: ["postgres", "redis"]
-    ports: ["5000:5000"]
-    environment:
-      PYTHONUNBUFFERED: 0
-      REDASH_LOG_LEVEL: "INFO"
-      REDASH_REDIS_URL: "redis://redis:6379/0"
-      REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
-      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
-      REDASH_WEB_WORKERS: 4
+  nginx:
+    image: redash/nginx:${REDASH_NGINX_VERSION}
+    container_name: redash-nginx
+    depends_on:
+      - server
+    networks:
+      - redash
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redash.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.redash.entrypoints=websecure"
+      - "traefik.http.routers.redash.tls=true"
+      - "traefik.http.routers.redash.tls.certresolver=letsencrypt"
+      - "traefik.http.services.redash.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_default"
 
-  worker:
-    image: redash/redash:${REDASH_VERSION}
-    command: scheduler
-    networks: [redash]
-    depends_on: ["postgres", "redis"]
+  postgres:
+    image: postgres:${POSTGRES_TAG}
+    container_name: redash-postgres
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
     environment:
-      PYTHONUNBUFFERED: 0
-      REDASH_LOG_LEVEL: "INFO"
-      REDASH_REDIS_URL: "redis://redis:6379/0"
-      REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
-      QUEUES: "queries,scheduled_queries,celery"
-      WORKERS_COUNT: 2
+      POSTGRES_HOST_AUTH_METHOD: trust
+    networks:
+      - redash
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -41,7 +42,9 @@ services:
 
   redis:
     image: redis:${REDIS_TAG}
-    networks: [redash]
+    container_name: redash-redis
+    networks:
+      - redash
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -49,12 +52,24 @@ services:
         max-size: "500k"
         max-file: "50"
 
-  postgres:
-    image: postgres:${POSTGRES_TAG}
-    volumes: ["./data/postgres:/var/lib/postgresql/data"]
-    networks: [redash]
+  server:
+    image: redash/redash:${REDASH_VERSION}
+    container_name: redash-server
+    depends_on:
+      - postgres
+      - redis
     environment:
-      POSTGRES_HOST_AUTH_METHOD: trust
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_WEB_WORKERS: 4
+    ports:
+      - "0.0.0.0:5000:5000"
+    networks:
+      - redash
+    command: server
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -62,16 +77,23 @@ services:
         max-size: "500k"
         max-file: "50"
 
-  nginx:
-    image: redash/nginx:latest
-    depends_on: ["server"]
-    links: ["server:redash"]
-    networks: [redash, traefik]
+  worker:
+    image: redash/redash:${REDASH_VERSION}
+    container_name: redash-worker
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+      QUEUES: "queries,scheduled_queries,celery"
+      WORKERS_COUNT: 2
+    networks:
+      - redash
+    command: scheduler
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
     logging:
       driver: "json-file"
       options:

@@ -1,8 +1,11 @@
 version: "3"
+name: confluence
 services:
   confluence:
     image: atlassian/confluence:${CONFLUENCE_VERSION}
-    hostname: confluence
+    container_name: confluence
+    volumes:
+      - confluencedata:/var/atlassian/application-data/confluence/
     environment:
       - 'ATL_PROXY_NAME=${SERVICE_DOMAIN}'
       - 'ATL_PROXY_PORT=443'
@@ -14,44 +17,50 @@ services:
       - 'ATL_JDBC_USER=${POSTGRES_USER}'
       - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS}'
       - 'ATL_DB_TYPE=postgresql'
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=8090"
-    ports: [ "8091:8091" ]
-    links:
-      - postgresql
-    volumes: [ "confluencedata:/var/atlassian/application-data/confluence/" ]
-    networks: [traefik,confluence]
+    ports:
+      - "0.0.0.0:8091:8091"
+    networks:
+      - traefik
+      - confluence
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.confluence.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.confluence.entrypoints=websecure"
+      - "traefik.http.routers.confluence.tls=true"
+      - "traefik.http.routers.confluence.tls.certresolver=letsencrypt"
+      - "traefik.http.services.confluence.loadbalancer.server.port=8090"
+      - "traefik.docker.network=traefik_default"
 
   postgresql:
     image: postgres:${POSTGRES_TAG}
-    networks: [confluence]
+    container_name: confluence-postgres
+    volumes:
+      - ./data/postgres/:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
       POSTGRES_DB: ${POSTGRES_DB}
-    volumes: [ "./data/postgres/:/var/lib/postgresql/data" ]
+    networks:
+      - confluence
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-
-volumes:
-  confluencedata:
-    external: false
 
 networks:
   confluence:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  confluencedata:
+    external: false

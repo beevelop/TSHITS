@@ -1,16 +1,19 @@
 version: "3"
+name: zabbix
 services:
   database:
     image: mariadb:${MARIADB_VERSION}
+    container_name: zabbix-mariadb
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - MARIADB_USER=${DB_USER}
       - MARIADB_PASSWORD=${DB_PASS}
       - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASS}
       - MARIADB_DATABASE=zabbix
-    volumes:
-      - "./data/mysql:/var/lib/mysql"
-      - "/etc/localtime:/etc/localtime:ro"
-    networks: [zabbix]
+    networks:
+      - zabbix
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -20,18 +23,23 @@ services:
 
   server:
     image: zabbix/zabbix-server-mysql:${ZABBIX_VERSION}
-    ports: [ "10051:10051" ]
-    networks: [traefik,zabbix]
+    container_name: zabbix-server
+    depends_on:
+      - database
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./data/zabbix/alertscripts:/usr/lib/zabbix/alertscripts
+      - ./data/zabbix/externalscripts:/usr/lib/zabbix/externalscripts
     environment:
       - DB_SERVER_HOST=database
       - MYSQL_USER=${DB_USER}
       - MYSQL_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=zabbix
-    depends_on: [database]
-    volumes:
-      - "/etc/localtime:/etc/localtime:ro"
-      - "./data/zabbix/alertscripts:/usr/lib/zabbix/alertscripts"
-      - "./data/zabbix/externalscripts:/usr/lib/zabbix/externalscripts"
+    ports:
+      - "0.0.0.0:10051:10051"
+    networks:
+      - traefik
+      - zabbix
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -41,7 +49,12 @@ services:
 
   web:
     image: zabbix/zabbix-web-nginx-mysql:${ZABBIX_VERSION}
-    networks: [traefik,zabbix]
+    container_name: zabbix-web
+    depends_on:
+      - database
+      - server
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - ZBX_SERVER_HOST=server
       - DB_SERVER_HOST=database
@@ -49,20 +62,23 @@ services:
       - MYSQL_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=zabbix
       - PHP_TZ=Europe/Berlin
-    depends_on: [server,database]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-      - "traefik.port=8080"
-    volumes:
-      - "/etc/localtime:/etc/localtime:ro"
+    networks:
+      - traefik
+      - zabbix
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zabbix.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.zabbix.entrypoints=websecure"
+      - "traefik.http.routers.zabbix.tls=true"
+      - "traefik.http.routers.zabbix.tls.certresolver=letsencrypt"
+      - "traefik.http.services.zabbix.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   zabbix:

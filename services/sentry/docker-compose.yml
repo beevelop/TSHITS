@@ -1,64 +1,15 @@
 version: "3"
+name: sentry
 services:
-  redis:
-    image: redis:${REDIS_TAG}
-    networks: [sentry]
-    volumes: ["./data/redis/:/data"]
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-
-  postgres:
-    image: postgres:${POSTGRES_TAG}
-    volumes: ["./data/postgres/:/var/lib/postgresql/data"]
-    networks: [sentry]
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-
-  server:
-    image: getsentry/sentry:${SENTRY_VERSION}
-    env_file: sentry.env
-    networks: [sentry,traefik]
-    volumes: 
-      - "./data/sentry/:/var/lib/sentry/files"
-      - "./sentry.conf.py:/etc/sentry/sentry.conf.py"
-    depends_on: [memcached,redis,postgres]
-    environment:
-      SENTRY_DB_NAME: ${DB_NAME}
-      SENTRY_DB_USER: ${DB_USER}
-      SENTRY_DB_PASSWORD: ${DB_PASS}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.docker.network=traefik_default"
-    links:
-      - postgres:postgres
-      - redis:redis
-      - memcached:memcached
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "200k"
-        max-file: "10"
-
   celery-cron:
     image: getsentry/sentry:${SENTRY_VERSION}
-    command: "run cron"
+    container_name: sentry-celery-cron
+    depends_on:
+      - server
     env_file: sentry.env
-    networks: [sentry]
-    depends_on: [server]
-    links: [postgres,redis,memcached]
+    networks:
+      - sentry
+    command: "run cron"
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -68,15 +19,17 @@ services:
 
   celery-worker:
     image: getsentry/sentry:${SENTRY_VERSION}
-    command: "run worker"
-    env_file: sentry.env
+    container_name: sentry-celery-worker
+    depends_on:
+      - server
     environment:
       SENTRY_DB_NAME: ${DB_NAME}
       SENTRY_DB_USER: ${DB_USER}
       SENTRY_DB_PASSWORD: ${DB_PASS}
-    networks: [sentry]
-    depends_on: [server]
-    links: [postgres,redis,memcached]
+    env_file: sentry.env
+    networks:
+      - sentry
+    command: "run worker"
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -86,13 +39,79 @@ services:
 
   memcached:
     image: memcached:${MEMCACHED_TAG}
-    networks: [sentry]
+    container_name: sentry-memcached
+    networks:
+      - sentry
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
+
+  postgres:
+    image: postgres:${POSTGRES_TAG}
+    container_name: sentry-postgres
+    volumes:
+      - ./data/postgres/:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    networks:
+      - sentry
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  redis:
+    image: redis:${REDIS_TAG}
+    container_name: sentry-redis
+    volumes:
+      - ./data/redis/:/data
+    networks:
+      - sentry
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  server:
+    image: getsentry/sentry:${SENTRY_VERSION}
+    container_name: sentry
+    depends_on:
+      - memcached
+      - postgres
+      - redis
+    volumes:
+      - ./data/sentry/:/var/lib/sentry/files
+      - ./sentry.conf.py:/etc/sentry/sentry.conf.py
+    environment:
+      SENTRY_DB_NAME: ${DB_NAME}
+      SENTRY_DB_USER: ${DB_USER}
+      SENTRY_DB_PASSWORD: ${DB_PASS}
+    env_file: sentry.env
+    networks:
+      - sentry
+      - traefik
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sentry.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.sentry.entrypoints=websecure"
+      - "traefik.http.routers.sentry.tls=true"
+      - "traefik.http.routers.sentry.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sentry.loadbalancer.server.port=9000"
+      - "traefik.docker.network=traefik_default"
 
 networks:
   sentry:
