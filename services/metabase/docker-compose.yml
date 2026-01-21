@@ -2,17 +2,23 @@ version: "3"
 name: metabase
 services:
   database:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-15-alpine}
     container_name: metabase-postgres
     volumes:
-      - ./data/postgres/:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER:-metabase}
+      POSTGRES_DB: ${DB_NAME:-metabase}
       POSTGRES_PASSWORD: ${DB_PASS}
     networks:
       - metabase
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-metabase} -d ${DB_NAME:-metabase}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -20,22 +26,28 @@ services:
         max-file: "50"
 
   metabase:
-    image: metabase/metabase:${METABASE_VERSION}
+    image: metabase/metabase:${METABASE_VERSION:-latest}
     container_name: metabase
     depends_on:
       - database
     environment:
       MB_JETTY_HOST: 0.0.0.0
       MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${DB_NAME}
+      MB_DB_DBNAME: ${DB_NAME:-metabase}
       MB_DB_PORT: 5432
-      MB_DB_USER: ${DB_USER}
+      MB_DB_USER: ${DB_USER:-metabase}
       MB_DB_PASS: ${DB_PASS}
       MB_DB_HOST: database
     networks:
       - metabase
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -55,3 +67,7 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-metabase}_postgres_data

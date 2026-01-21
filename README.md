@@ -1,296 +1,298 @@
 # BeeCompose
 
-**Production-ready Docker Compose stacks. Curated.**
+**Production-ready Docker Compose stacks, published as OCI artifacts.**
 
-A curated collection of Docker Compose configurations for self-hosted services. Started in April 2020, BeeCompose provides production-ready setups for 30+ popular self-hosted applications with built-in reverse proxy integration, encrypted secrets management, and automated backups.
-
-## Features
-
-- **30 Pre-configured Services** - From GitLab to Keycloak, ready to deploy
-- **Traefik Integration** - Automatic reverse proxy with Let's Encrypt SSL (CloudFlare DNS-01)
-- **Encrypted Secrets** - AES-256-CBC encryption for environment files
-- **Automated Backups** - Restic-based backup before every upgrade
-- **Standardized Structure** - Consistent patterns across all services
-- **CI/CD Tested** - GitHub Actions pipeline validates all configurations
+A curated collection of Docker Compose configurations for self-hosted services. Started in April 2020, BeeCompose provides production-ready setups for 30 popular self-hosted applications with Traefik integration, native healthchecks, and one-command deployment from GitHub Container Registry.
 
 ## Quick Start
+
+### Deploy from GHCR (Recommended)
+
+Deploy any service directly from GitHub Container Registry without cloning the repository:
+
+```bash
+# 1. Create your environment file
+cat > .env.production << 'EOF'
+COMPOSE_PROJECT_NAME=gitlab
+SERVICE_DOMAIN=gitlab.example.com
+DB_USER=gitlab
+DB_PASS=your-secure-password
+GITLAB_ROOT_PASSWORD=your-root-password
+EOF
+
+# 2. Deploy from OCI artifact
+docker compose \
+  -f oci://ghcr.io/beevelop/gitlab:latest \
+  --env-file .env.production \
+  up -d
+
+# 3. Check status
+docker compose \
+  -f oci://ghcr.io/beevelop/gitlab:latest \
+  --env-file .env.production \
+  ps
+```
+
+### Clone and Customize
+
+For customization or development:
 
 ```bash
 # Clone the repository
 git clone https://github.com/beevelop/beecompose.git
-cd beecompose
+cd beecompose/services/gitlab
 
-# Configure your environment
-echo "production" > .bee.environ
-echo "your-master-password" > .bee.pass
-
-# Deploy a service
-cd services/gitlab
+# Configure environment
 cp .env.example .env.production
 # Edit .env.production with your settings
-./bee up production
+
+# Deploy
+docker compose --env-file .env.production up -d
 ```
 
 ## Prerequisites
 
-| Tool | Purpose | Installation |
-|------|---------|--------------|
-| Docker | Container runtime | [docker.com](https://docs.docker.com/get-docker/) |
-| Docker Compose | Service orchestration | [docs.docker.com](https://docs.docker.com/compose/install/) |
-| envsubst | Template substitution | [command-not-found.com](https://command-not-found.com/envsubst) |
-| curl | HTTP health checks | [command-not-found.com](https://command-not-found.com/curl) |
-| nc (netcat) | TCP/UDP health checks | [command-not-found.com](https://command-not-found.com/nc) |
-| restic | Backup management | [command-not-found.com](https://command-not-found.com/restic) |
-| openssl | Secret encryption | [command-not-found.com](https://command-not-found.com/openssl) |
+| Requirement | Minimum Version | Notes |
+|-------------|-----------------|-------|
+| Docker | 25.0+ | Required for OCI artifact support |
+| Docker Compose | v2.24+ | Bundled with Docker Desktop |
 
 **Optional:** CloudFlare account for DNS-01 Let's Encrypt challenge (used by Traefik).
+
+> **Note:** OCI artifact deployment (`docker compose -f oci://...`) requires Docker 25.0 or later.
+> For older Docker versions, use the "Clone and Customize" method.
+
+## Available Services
+
+All services are published to `ghcr.io/beevelop/<service>:<version>`.
+
+| Service | Description | OCI Artifact |
+|---------|-------------|--------------|
+| **bitwarden** | Password manager (Vaultwarden) | `ghcr.io/beevelop/bitwarden` |
+| **cabot** | Monitoring and alerts | `ghcr.io/beevelop/cabot` |
+| **confluence** | Atlassian documentation | `ghcr.io/beevelop/confluence` |
+| **crowd** | Atlassian SSO | `ghcr.io/beevelop/crowd` |
+| **dependency-track** | Dependency security analysis | `ghcr.io/beevelop/dependency-track` |
+| **directus** | Headless CMS and REST API | `ghcr.io/beevelop/directus` |
+| **duckling** | NLP text parser | `ghcr.io/beevelop/duckling` |
+| **gitlab** | Git hosting with CI/CD | `ghcr.io/beevelop/gitlab` |
+| **graylog** | Log aggregation | `ghcr.io/beevelop/graylog` |
+| **huginn** | Self-hosted IFTTT/Zapier | `ghcr.io/beevelop/huginn` |
+| **jira** | Atlassian project management | `ghcr.io/beevelop/jira` |
+| **keycloak** | Identity and access management | `ghcr.io/beevelop/keycloak` |
+| **metabase** | Database analytics | `ghcr.io/beevelop/metabase` |
+| **minio** | S3-compatible object storage | `ghcr.io/beevelop/minio` |
+| **monica** | Personal CRM | `ghcr.io/beevelop/monica` |
+| **mysql** | MySQL database server | `ghcr.io/beevelop/mysql` |
+| **nexus** | Binary repository manager | `ghcr.io/beevelop/nexus` |
+| **openvpn** | OpenVPN server | `ghcr.io/beevelop/openvpn` |
+| **phpmyadmin** | MySQL web administration | `ghcr.io/beevelop/phpmyadmin` |
+| **redash** | Data visualization | `ghcr.io/beevelop/redash` |
+| **registry** | Private Docker registry | `ghcr.io/beevelop/registry` |
+| **rundeck** | Infrastructure automation | `ghcr.io/beevelop/rundeck` |
+| **sentry** | Error tracking | `ghcr.io/beevelop/sentry` |
+| **shields** | Badge generation | `ghcr.io/beevelop/shields` |
+| **sonarqube** | Code quality analysis | `ghcr.io/beevelop/sonarqube` |
+| **statping** | Status page and monitoring | `ghcr.io/beevelop/statping` |
+| **traefik** | Reverse proxy with Let's Encrypt | `ghcr.io/beevelop/traefik` |
+| **tus** | Resumable file uploads | `ghcr.io/beevelop/tus` |
+| **weblate** | Translation management | `ghcr.io/beevelop/weblate` |
+| **zabbix** | Enterprise monitoring | `ghcr.io/beevelop/zabbix` |
+
+## Common Operations
+
+| Task | Command |
+|------|---------|
+| Start service | `docker compose --env-file .env.production up -d` |
+| Stop service | `docker compose --env-file .env.production down` |
+| View logs | `docker compose --env-file .env.production logs -f` |
+| Check status | `docker compose --env-file .env.production ps` |
+| Update images | `docker compose --env-file .env.production pull && docker compose --env-file .env.production up -d` |
+| Destroy (with data) | `docker compose --env-file .env.production down -v --rmi all` |
+
+### Using OCI Artifacts
+
+When deploying from GHCR, include the OCI URL in each command:
+
+```bash
+# Define convenience alias
+alias dc="docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.production"
+
+# Now use it for all operations
+dc up -d
+dc logs -f
+dc ps
+dc down
+```
 
 ## Project Structure
 
 ```
 beecompose/
-├── .bee.environ          # Environment name (e.g., "production")
-├── .bee.pass             # Master encryption key
-├── meta/
-│   ├── bee.sh            # Core helper functions
-│   └── checks.sh         # Health check functions
-├── housekeeping/
-│   ├── encrypt_all.sh    # Encrypt all service environments
-│   └── prune_backups.sh  # Prune all service backups
+├── .dclintrc.yaml            # Docker Compose linter configuration
+├── .github/
+│   ├── workflows/
+│   │   ├── ci-cd.yml         # CI/CD pipeline
+│   │   └── publish-oci.yml   # OCI artifact publishing
+│   └── CI-CD.md              # Pipeline documentation
+├── docs/
+│   ├── AUDIT.md              # Service inventory
+│   ├── BACKUP.md             # Backup and restore procedures
+│   ├── DEPLOYMENT.md         # Deployment guide
+│   ├── DEPENDENCIES.md       # Service dependency graph
+│   ├── MIGRATION.md          # Migration from legacy setup
+│   ├── OCI_NAMING.md         # OCI naming conventions
+│   └── TESTING.md            # Testing procedures
 └── services/
     └── <service>/
-        ├── bee                   # Service helper script
         ├── docker-compose.yml    # Compose configuration
         ├── .env                  # Version tags (committed)
-        ├── .env.<environ>        # Environment secrets (gitignored)
         ├── .env.example          # Example configuration (committed)
-        └── data/                 # Persistent data (gitignored)
+        └── .env.<environ>        # Your secrets (gitignored)
 ```
-
-## Usage
-
-Navigate to any service directory and use the `bee` helper:
-
-```bash
-cd services/<service>
-./bee <command> [environment]
-```
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `up <env>` | Full deployment: prepare, launch, and health check |
-| `prepare` | Create folders, generate configs |
-| `launch` | Pull images and start containers |
-| `health` | Run health checks |
-| `backup` | Backup data to `./backups/` via restic |
-| `upgrade` | Backup + up (safe upgrade) |
-| `logs <env>` | Tail container logs |
-| `down` | Stop containers |
-| `encrypt <env>` | Encrypt `.env.<env>` to `.enc.env.<env>` |
-| `decrypt <env>` | Decrypt `.enc.env.<env>` to `.env.<env>` |
-| `nuke` | Remove everything including data (**dangerous**) |
-
-### Example: Deploying GitLab
-
-```bash
-cd services/gitlab
-
-# Create environment file from example
-cp .env.example .env.production
-
-# Edit with your domain and secrets
-vim .env.production
-
-# Deploy
-./bee up production
-
-# Check status
-./bee health
-```
-
-## Available Services
-
-| Service | Description |
-|---------|-------------|
-| **bitwarden** | Password manager with native apps for all platforms |
-| **cabot** | Monitoring and alerts (lightweight PagerDuty alternative) |
-| **confluence** | Atlassian documentation and knowledge management |
-| **crowd** | Atlassian Single Sign-On (SSO) |
-| **dependency-track** | Dependency security and license compliance analysis |
-| **directus** | REST API/SDK layer for any database |
-| **duckling** | NLP text-to-structured-data parser |
-| **gitlab** | Git hosting with built-in CI/CD |
-| **graylog** | Log aggregation with Elasticsearch |
-| **huginn** | Self-hosted IFTTT/Zapier alternative |
-| **jira** | Atlassian project and task management |
-| **keycloak** | Authentication provider (OpenID, OAuth, LDAP) |
-| **metabase** | Database analytics and dashboards |
-| **minio** | S3-compatible object storage |
-| **monica** | Personal CRM for managing relationships |
-| **mysql** | MySQL database server |
-| **nexus** | Sonatype binary repository and package registry |
-| **openvpn** | OpenVPN server |
-| **phpmyadmin** | MySQL web administration |
-| **redash** | Data analysis and visualization |
-| **registry** | Private Docker registry |
-| **rundeck** | Infrastructure automation and runbook execution |
-| **sentry** | Application error tracking and monitoring |
-| **shields** | Badge generation service |
-| **sonarqube** | Code quality and security analysis |
-| **statping** | Status page and uptime monitoring |
-| **traefik** | Reverse proxy and load balancer with Let's Encrypt |
-| **tus** | Resumable file upload server |
-| **weblate** | Translation management platform |
-| **zabbix** | Enterprise monitoring solution |
 
 ## Configuration
 
 ### Environment Files
 
-Each service uses two types of environment files:
+Each service uses environment files for configuration:
 
-**.env** (committed) - Version tags and non-sensitive defaults:
+**.env** (committed) - Version tags:
 ```bash
 GITLAB_VERSION=16.0.0
-POSTGRES_TAG=15-alpine
+POSTGRES_VERSION=15-alpine
 ```
 
-**.env.example** (committed) - Template for environment-specific secrets:
+**.env.example** (committed) - Template with placeholders:
 ```bash
+COMPOSE_PROJECT_NAME=gitlab
 SERVICE_DOMAIN=gitlab.example.com
 DB_USER=bee
 DB_PASS=Swordfish
-SMTP_HOST=smtp.example.com
 ```
 
-**.env.<environ>** (gitignored) - Your actual secrets:
+**.env.production** (gitignored) - Your actual configuration:
 ```bash
+COMPOSE_PROJECT_NAME=gitlab
 SERVICE_DOMAIN=gitlab.yourdomain.com
 DB_USER=gitlab
 DB_PASS=your-secure-password
-SMTP_HOST=mail.yourdomain.com
-```
-
-### Encryption
-
-Encrypt your environment files for secure storage:
-
-```bash
-# Set up master password
-echo "your-master-password" > .bee.pass
-
-# Encrypt a service's environment file
-cd services/gitlab
-./bee encrypt production
-# Creates .enc.env.production
-
-# Decrypt when needed
-./bee decrypt production
-# Restores .env.production
-```
-
-Alternatively, use environment variables:
-```bash
-export BEEPASS="your-master-password"
-export ENVIRON="production"
 ```
 
 ### Traefik Integration
 
-All services are pre-configured for Traefik v1 reverse proxy. To set up Traefik:
+All services are pre-configured for Traefik v3 reverse proxy with Let's Encrypt SSL.
+
+**First, deploy Traefik:**
 
 ```bash
-cd services/traefik
+# Create environment
+cat > .env.production << 'EOF'
+COMPOSE_PROJECT_NAME=traefik
+TRAEFIK_DOMAIN=traefik.example.com
+CLOUDFLARE_EMAIL=your@email.com
+CLOUDFLARE_API_KEY=your-api-key
+EOF
 
-# Create environment file
-cp .env.example .env.production
-# Configure your CloudFlare credentials and domain
-
-# Generate traefik.toml from template
-envsubst < traefik.toml.tpl > traefik.toml
-
-# Start Traefik
-./bee up production
+# Deploy Traefik
+docker compose \
+  -f oci://ghcr.io/beevelop/traefik:latest \
+  --env-file .env.production \
+  up -d
 ```
 
-Services connect via the `traefik_default` external network and expose themselves using Traefik labels:
+**Then deploy other services.** They automatically connect via the `traefik_default` network.
 
-```yaml
-labels:
-  - "traefik.enable=true"
-  - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-  - "traefik.docker.network=traefik_default"
-  - "traefik.port=8080"
+### Named Volumes
+
+All services use Docker named volumes for data persistence. Volume names follow the pattern:
+
+```
+${COMPOSE_PROJECT_NAME}_<purpose>
+
+Examples:
+- gitlab_app_data
+- gitlab_postgres_data
+- gitlab_redis_data
 ```
 
-## Backups
-
-Backups are managed via [restic](https://restic.net/) and stored locally in each service's `./backups/` directory.
+List volumes for a service:
 
 ```bash
-# Manual backup
-cd services/gitlab
-./bee backup
-
-# Upgrade with automatic backup
-./bee upgrade production
-
-# Prune old backups (from repo root)
-./housekeeping/prune_backups.sh
+docker volume ls --filter "name=gitlab"
 ```
-
-**Note:** Local backups protect against failed upgrades. For disaster recovery, sync backups to remote storage using restic's built-in support for S3, B2, SFTP, and other backends.
 
 ## Health Checks
 
-Each service implements health checks in its `bee` script:
+All services include native Docker healthcheck directives. Check health status with:
 
 ```bash
-# Check service health
-./bee health
+docker compose --env-file .env.production ps
 ```
 
-Available check functions in `meta/checks.sh`:
+Healthy containers show `(healthy)` in the STATUS column.
 
-| Function | Usage |
-|----------|-------|
-| `check_traefik <host> <expected>` | HTTP check via Traefik |
-| `check_curl <url> <expected>` | Direct HTTP check |
-| `check_tcp <host> <port>` | TCP port check |
-| `check_udp <host> <port>` | UDP port check |
-| `check_file <path>` | File existence check |
+## Backups
+
+See [docs/BACKUP.md](docs/BACKUP.md) for comprehensive backup and restore procedures including:
+
+- Tar archive backups
+- Database-specific dumps (PostgreSQL, MySQL, MongoDB, Redis)
+- Restic for production environments
+- Automated backup scripts
+
+Quick backup example:
+
+```bash
+# Backup a volume
+docker run --rm \
+  -v gitlab_postgres_data:/data:ro \
+  -v $(pwd)/backups:/backup \
+  alpine tar czf /backup/gitlab_postgres_$(date +%Y%m%d).tar.gz -C /data .
+```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Deployment Guide](docs/DEPLOYMENT.md) | Complete deployment walkthrough |
+| [Backup Guide](docs/BACKUP.md) | Backup and restore procedures |
+| [Migration Guide](docs/MIGRATION.md) | Migrate from legacy bee scripts |
+| [Testing Guide](docs/TESTING.md) | Testing procedures and validation |
+| [CI/CD Pipeline](.github/CI-CD.md) | Pipeline architecture and usage |
+| [Service Audit](docs/AUDIT.md) | Complete service inventory |
+| [OCI Naming](docs/OCI_NAMING.md) | OCI artifact naming conventions |
 
 ## CI/CD
 
-The repository includes a GitHub Actions pipeline that:
+The repository includes GitHub Actions pipelines that:
 
-1. **Validates** all docker-compose.yml files (YAML syntax)
-2. **Extracts** and lists all Docker images used
-3. **Scans** images for CVEs using Trivy (informational)
-4. **Tests** each service with Docker Compose
-
-Services can opt out of CI testing by adding a `.ci-skip` file.
+1. **Lint** - Validates all docker-compose.yml files with DCLint
+2. **Validate OCI** - Ensures all services are OCI-compatible (no bind mounts)
+3. **CVE Scan** - Scans images for vulnerabilities using Trivy
+4. **Test** - Validates each service starts correctly
+5. **Publish** - Publishes OCI artifacts to GHCR on main branch
 
 See [.github/CI-CD.md](.github/CI-CD.md) for detailed documentation.
 
 ## Notes
 
 - **Placeholder Values:** Examples use `example.com`, `bee` (username), and `Swordfish` (password)
-- **Traefik Version:** Uses Traefik v1 (intentional for legacy compatibility)
+- **Traefik Version:** Uses Traefik v3 with Let's Encrypt DNS-01 challenge
 - **Restart Policy:** All containers use `restart: unless-stopped`
-- **Logging Limits:** JSON logging with `max-size: 500k` and `max-file: 50`
-- **Docker Compose:** All files use `version: "3"`
+- **Logging:** JSON logging with `max-size: 500k` and `max-file: 50`
+- **Docker Compose:** Files use `version: "3"` (optional but kept for compatibility)
 
 ## Contributing
 
 Pull requests are welcome! Please:
 
-- Follow existing docker-compose patterns
-- Include `.env.example` with placeholder values
-- Implement health checks in the `bee` script
-- Test with `./bee up test` before submitting
+1. Follow existing docker-compose patterns
+2. Include `.env.example` with placeholder values
+3. Use named volumes (no `./data/` bind mounts)
+4. Include native Docker healthcheck directives
+5. Run DCLint before submitting: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<service> -c /app/.dclintrc.yaml`
+6. Test locally with `docker compose --env-file .env.test up -d`
 
 ## License
 

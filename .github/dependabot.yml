@@ -1,0 +1,488 @@
+# Dependabot Configuration for BeeCompose
+#
+# Monitors Docker images in compose files and GitHub Actions workflows for updates.
+# Creates PRs when new versions are available.
+#
+# Documentation: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # ============================================================================
+  # GitHub Actions - Weekly updates
+  # ============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "CI"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 5
+
+  # ============================================================================
+  # Docker Compose Services - Weekly updates per service
+  # ============================================================================
+  # Dependabot monitors docker-compose.yml files for image version updates.
+  # Each service is checked independently to isolate update PRs.
+  
+  # Core Infrastructure
+  - package-ecosystem: "docker-compose"
+    directory: "/services/traefik"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Traefik"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "infrastructure"
+    open-pull-requests-limit: 3
+
+  # Atlassian Suite
+  - package-ecosystem: "docker-compose"
+    directory: "/services/jira"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Jira"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "atlassian"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/confluence"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Confluence"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "atlassian"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/crowd"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Crowd"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "atlassian"
+    open-pull-requests-limit: 3
+
+  # DevOps Tools
+  - package-ecosystem: "docker-compose"
+    directory: "/services/gitlab"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "GitLab"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "devops"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/sonarqube"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "SonarQube"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "devops"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/nexus"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "08:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Nexus"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "devops"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/registry"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Registry"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "devops"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/rundeck"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "10:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Rundeck"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "devops"
+    open-pull-requests-limit: 3
+
+  # Monitoring & Observability
+  - package-ecosystem: "docker-compose"
+    directory: "/services/sentry"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Sentry"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "monitoring"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/graylog"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Graylog"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "monitoring"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/zabbix"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "08:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Zabbix"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "monitoring"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/statping"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "09:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Statping"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "monitoring"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/cabot"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "10:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Cabot"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "monitoring"
+    open-pull-requests-limit: 3
+
+  # Security
+  - package-ecosystem: "docker-compose"
+    directory: "/services/bitwarden"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Bitwarden"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/keycloak"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Keycloak"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/openvpn"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "08:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "OpenVPN"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/dependency-track"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "09:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "DependencyTrack"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    open-pull-requests-limit: 3
+
+  # Analytics & BI
+  - package-ecosystem: "docker-compose"
+    directory: "/services/metabase"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Metabase"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "analytics"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/redash"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Redash"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "analytics"
+    open-pull-requests-limit: 3
+
+  # Productivity & CMS
+  - package-ecosystem: "docker-compose"
+    directory: "/services/directus"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "08:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Directus"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "productivity"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/huginn"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "09:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Huginn"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "productivity"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/monica"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "10:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Monica"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "productivity"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/weblate"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "11:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Weblate"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "productivity"
+    open-pull-requests-limit: 3
+
+  # Storage & Data
+  - package-ecosystem: "docker-compose"
+    directory: "/services/minio"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "MinIO"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "storage"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/mysql"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "07:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "MySQL"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "database"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/phpmyadmin"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "08:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "phpMyAdmin"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "database"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/tus"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "09:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "TUS"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "storage"
+    open-pull-requests-limit: 3
+
+  # Miscellaneous
+  - package-ecosystem: "docker-compose"
+    directory: "/services/duckling"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "10:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Duckling"
+    labels:
+      - "dependencies"
+      - "docker"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/shields"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "11:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Shields"
+    labels:
+      - "dependencies"
+      - "docker"
+    open-pull-requests-limit: 3

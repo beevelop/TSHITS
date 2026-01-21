@@ -17,6 +17,12 @@ services:
       - crowd
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8095/crowd/status" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -35,7 +41,7 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: crowd-postgres
     volumes:
-      - crowd_postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
@@ -43,6 +49,12 @@ services:
     networks:
       - crowd
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crowd} -d ${POSTGRES_DB:-crowd}" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -57,6 +69,6 @@ networks:
 
 volumes:
   crowd_data:
-    external: false
-  crowd_postgres:
-    external: false
+    name: ${COMPOSE_PROJECT_NAME:-crowd}_app_data
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-crowd}_postgres_data

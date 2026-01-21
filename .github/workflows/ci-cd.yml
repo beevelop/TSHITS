@@ -58,6 +58,15 @@ env:
   CVE_FAIL_ON_CRITICAL: false
   CVE_FAIL_ON_HIGH: false
 
+# Prevent concurrent CI runs on the same branch
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+# Default permissions (restrictive) - minimal access by default
+permissions:
+  contents: read
+
 jobs:
   # ============================================================================
   # Job 1: Lint Docker Compose Files
@@ -206,12 +215,145 @@ jobs:
           echo "See the \`dclint-results\` artifact for detailed report." >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
-  # Job 2: Discover and Validate Services
+  # Job 2: Validate OCI Compatibility
+  # ============================================================================
+  validate-oci:
+    name: Validate OCI Compatibility
+    runs-on: ubuntu-latest
+    needs: lint
+    outputs:
+      oci_compatible: ${{ steps.validate.outputs.compatible }}
+      bind_mount_count: ${{ steps.validate.outputs.bind_mount_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check OCI compatibility
+        id: validate
+        run: |
+          set -uo pipefail
+          
+          echo "=== Validating OCI Compatibility ==="
+          
+          ERRORS=0
+          WARNINGS=0
+          BIND_MOUNTS=0
+          
+          # Create results file
+          echo "# OCI Compatibility Report" > /tmp/oci-report.md
+          echo "" >> /tmp/oci-report.md
+          echo "| Service | Status | Issues |" >> /tmp/oci-report.md
+          echo "|---------|--------|--------|" >> /tmp/oci-report.md
+          
+          for COMPOSE in services/*/docker-compose.yml; do
+            SERVICE=$(dirname "$COMPOSE" | xargs basename)
+            ISSUES=""
+            STATUS="✅ Pass"
+            
+            # Load env files for variable substitution
+            ENV_FILE="services/${SERVICE}/.env"
+            EXAMPLE_FILE="services/${SERVICE}/.env.example"
+            
+            set +u
+            if [[ -f "$ENV_FILE" ]]; then
+              set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+            fi
+            if [[ -f "$EXAMPLE_FILE" ]]; then
+              set -a; source "$EXAMPLE_FILE" 2>/dev/null || true; set +a
+            fi
+            set -u
+            
+            # Check for bind mounts (except docker.sock which is allowed for traefik)
+            BINDS=$(docker compose -f "$COMPOSE" config 2>/dev/null | \
+              grep -E 'type: bind' | \
+              grep -v 'docker.sock' || true)
+            
+            if [[ -n "$BINDS" ]]; then
+              BIND_COUNT=$(echo "$BINDS" | wc -l | tr -d ' ')
+              BIND_MOUNTS=$((BIND_MOUNTS + BIND_COUNT))
+              ISSUES="${ISSUES}bind mounts ($BIND_COUNT); "
+              STATUS="❌ Fail"
+              ERRORS=$((ERRORS + 1))
+              echo "::error file=$COMPOSE::Contains $BIND_COUNT bind mount(s) - not OCI compatible"
+            fi
+            
+            # Check for build directives
+            if grep -qE '^\s+build:' "$COMPOSE" 2>/dev/null; then
+              ISSUES="${ISSUES}build directive; "
+              STATUS="⚠️ Warn"
+              WARNINGS=$((WARNINGS + 1))
+              echo "::warning file=$COMPOSE::Contains build directive - images must be pre-built for OCI"
+            fi
+            
+            # Check for local config file references (not in volumes section)
+            if grep -qE '^\s+-\s+\./[^/]+\.(yml|yaml|conf|env|toml):' "$COMPOSE" 2>/dev/null; then
+              ISSUES="${ISSUES}local config files; "
+              if [[ "$STATUS" != "❌ Fail" ]]; then
+                STATUS="⚠️ Warn"
+              fi
+              WARNINGS=$((WARNINGS + 1))
+              echo "::warning file=$COMPOSE::References local config files"
+            fi
+            
+            # Default issues text
+            if [[ -z "$ISSUES" ]]; then
+              ISSUES="None"
+            fi
+            
+            echo "| $SERVICE | $STATUS | $ISSUES |" >> /tmp/oci-report.md
+          done
+          
+          # Summary
+          echo "" >> /tmp/oci-report.md
+          echo "## Summary" >> /tmp/oci-report.md
+          echo "" >> /tmp/oci-report.md
+          echo "- **Errors:** $ERRORS" >> /tmp/oci-report.md
+          echo "- **Warnings:** $WARNINGS" >> /tmp/oci-report.md
+          echo "- **Total bind mounts:** $BIND_MOUNTS" >> /tmp/oci-report.md
+          
+          # Output results
+          echo "bind_mount_count=$BIND_MOUNTS" >> $GITHUB_OUTPUT
+          
+          if [[ $ERRORS -eq 0 ]]; then
+            echo "compatible=true" >> $GITHUB_OUTPUT
+            echo ""
+            echo "All services are OCI compatible!"
+          else
+            echo "compatible=false" >> $GITHUB_OUTPUT
+            echo ""
+            echo "::error::$ERRORS service(s) have OCI compatibility issues"
+          fi
+          
+          echo ""
+          cat /tmp/oci-report.md
+
+      - name: Add OCI summary to GitHub Actions
+        if: always()
+        run: |
+          echo "## OCI Compatibility Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.validate.outputs.compatible }}" == "true" ]]; then
+            echo "✅ **All services are OCI compatible**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some services have OCI compatibility issues**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Bind mounts detected: ${{ steps.validate.outputs.bind_mount_count }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Services can be deployed from OCI artifacts:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'docker compose -f oci://ghcr.io/beevelop/<service>:<version> up -d' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Job 3: Discover and Validate Services
   # ============================================================================
   discover:
     name: Discover Services
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, validate-oci]
     outputs:
       services: ${{ steps.discover.outputs.services }}
       service_count: ${{ steps.discover.outputs.service_count }}
@@ -309,7 +451,7 @@ jobs:
           echo "All compose files validated successfully!"
 
   # ============================================================================
-  # Job 3: Extract All Docker Images
+  # Job 4: Extract All Docker Images
   # ============================================================================
   extract-images:
     name: Extract Docker Images
@@ -386,7 +528,7 @@ jobs:
           echo "$UNIQUE_IMAGES"
 
   # ============================================================================
-  # Job 4: CVE Vulnerability Scanning
+  # Job 5: CVE Vulnerability Scanning
   # ============================================================================
   cve-scan:
     name: CVE Vulnerability Scan
@@ -550,7 +692,7 @@ jobs:
           echo "CVE scan completed - report generated (non-blocking)"
 
   # ============================================================================
-  # Job 5: Sequential Docker Compose Testing
+  # Job 6: Sequential Docker Compose Testing
   # ============================================================================
   test-services:
     name: Test Docker Compose Services
@@ -821,12 +963,12 @@ jobs:
           retention-days: 30
 
   # ============================================================================
-  # Job 6: Final Summary
+  # Job 7: Final Summary
   # ============================================================================
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [lint, discover, extract-images, cve-scan, test-services]
+    needs: [lint, validate-oci, discover, extract-images, cve-scan, test-services]
     if: always()
     steps:
       - name: Generate summary

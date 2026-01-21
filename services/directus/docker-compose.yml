@@ -7,8 +7,8 @@ services:
     depends_on:
       - mysql
     volumes:
-      - ./data/directus/uploads:/directus/uploads
-      - ./data/directus/extensions:/directus/extensions
+      - directus_uploads:/directus/uploads
+      - directus_extensions:/directus/extensions
     environment:
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
@@ -23,6 +23,12 @@ services:
       - directus
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8055/server/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -41,7 +47,7 @@ services:
     image: mysql:${MYSQL_TAG}
     container_name: directus-mysql
     volumes:
-      - ./data/mysql/:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
       MYSQL_DATABASE: ${DB_NAME}
@@ -50,6 +56,12 @@ services:
     networks:
       - directus
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASS}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -61,3 +73,11 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  directus_uploads:
+    name: ${COMPOSE_PROJECT_NAME:-directus}_uploads
+  directus_extensions:
+    name: ${COMPOSE_PROJECT_NAME:-directus}_extensions
+  mysql_data:
+    name: ${COMPOSE_PROJECT_NAME:-directus}_mysql_data

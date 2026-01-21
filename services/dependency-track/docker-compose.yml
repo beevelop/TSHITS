@@ -5,10 +5,16 @@ services:
     image: dependencytrack/bundled:${DEPENDENCY_TRACK_VERSION}
     container_name: dtrack
     volumes:
-      - dtrack:/data
+      - dtrack_data:/data
     networks:
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/version" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -29,4 +35,5 @@ networks:
       name: traefik_default
 
 volumes:
-  dtrack:
+  dtrack_data:
+    name: ${COMPOSE_PROJECT_NAME:-dependency-track}_app_data

@@ -1,1 +1,28 @@
+# IDE
 .vscode
+.idea
+
+# Environment files (keep examples)
+.env.*
+!.env.example
+services/*/.env.*
+!services/*/.env.example
+
+# Data and backups
+services/*/data/
+services/*/backups/
+data/
+backups/
+
+# Logs
+*.log
+services/*/logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*~

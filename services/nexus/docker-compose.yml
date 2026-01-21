@@ -5,10 +5,16 @@ services:
     image: sonatype/nexus3:${NEXUS_VERSION}
     container_name: nexus
     volumes:
-      - ./data/nexus/:/nexus-data
+      - nexus_data:/nexus-data
     networks:
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/service/rest/v1/status" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -27,3 +33,7 @@ networks:
   traefik:
     name: traefik_default
     external: true
+
+volumes:
+  nexus_data:
+    name: ${COMPOSE_PROJECT_NAME:-nexus}_data

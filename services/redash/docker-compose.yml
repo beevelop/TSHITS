@@ -10,6 +10,12 @@ services:
       - redash
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -28,12 +34,18 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: redash-postgres
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
     networks:
       - redash
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -46,6 +58,12 @@ services:
     networks:
       - redash
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     logging:
       driver: "json-file"
       options:
@@ -73,6 +91,12 @@ services:
           - redash
     command: server
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -108,3 +132,7 @@ networks:
   traefik:
     name: traefik_default
     external: true
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-redash}_postgres_data

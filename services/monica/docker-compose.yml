@@ -17,6 +17,12 @@ services:
       - traefik
       - monica
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -35,7 +41,7 @@ services:
     image: mysql:${MYSQL_TAG}
     container_name: monica-mysql
     volumes:
-      - ./data/mysql/:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
       MYSQL_DATABASE: ${DB_NAME}
@@ -44,6 +50,12 @@ services:
     networks:
       - monica
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASS}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -55,3 +67,7 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  mysql_data:
+    name: ${COMPOSE_PROJECT_NAME:-monica}_mysql_data

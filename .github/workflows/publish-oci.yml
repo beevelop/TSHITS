@@ -1,0 +1,294 @@
+# BeeCompose OCI Artifact Publishing
+#
+# This workflow publishes Docker Compose stacks as OCI artifacts to GitHub Container Registry.
+# Services can be deployed directly from GHCR using:
+#   docker compose -f oci://ghcr.io/beevelop/<service>:<version> up -d
+#
+# Triggers:
+# - Push to main: Publishes changed services with version from .env + latest tag
+# - Manual dispatch: Publish specific service with optional version override
+# - Release: Publishes all services with release tag
+
+name: Publish OCI Artifacts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to publish (empty for all changed)'
+        required: false
+        type: string
+      version_override:
+        description: 'Override version tag (e.g., v1.0.0)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run - validate only, do not publish'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_NAMESPACE: beevelop
+
+# Prevent concurrent publishing runs to avoid race conditions
+concurrency:
+  group: publish-oci-${{ github.ref }}
+  cancel-in-progress: false
+
+# Default permissions (restrictive) - jobs override as needed
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================================
+  # Job 1: Detect Changed Services
+  # ============================================================================
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+      service_count: ${{ steps.detect.outputs.service_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: detect
+        run: |
+          set -euo pipefail
+          
+          echo "=== Detecting changed services ==="
+          
+          # If specific service provided via workflow dispatch
+          if [[ -n "${{ inputs.service }}" ]]; then
+            if [[ -d "services/${{ inputs.service }}" ]]; then
+              echo "Manual trigger for: ${{ inputs.service }}"
+              echo 'services=["${{ inputs.service }}"]' >> $GITHUB_OUTPUT
+              echo "service_count=1" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "::error::Service '${{ inputs.service }}' not found"
+              exit 1
+            fi
+          fi
+          
+          # If release event, publish all services
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "Release trigger - publishing all services"
+            SERVICES=$(find services -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort | jq -R -s -c 'split("\n") | map(select(. != ""))')
+            COUNT=$(echo "$SERVICES" | jq 'length')
+            echo "services=$SERVICES" >> $GITHUB_OUTPUT
+            echo "service_count=$COUNT" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Detect changes from last commit
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | \
+            grep '^services/' | \
+            cut -d'/' -f2 | \
+            sort -u | \
+            jq -R -s -c 'split("\n") | map(select(. != ""))') || echo '[]'
+          
+          COUNT=$(echo "$CHANGED" | jq 'length')
+          
+          echo "Changed services: $CHANGED"
+          echo "services=$CHANGED" >> $GITHUB_OUTPUT
+          echo "service_count=$COUNT" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # Job 2: Validate OCI Compatibility
+  # ============================================================================
+  validate:
+    name: Validate
+    needs: detect-changes
+    if: needs.detect-changes.outputs.service_count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Compose syntax
+        working-directory: services/${{ matrix.service }}
+        run: |
+          echo "=== Validating ${{ matrix.service }} ==="
+          
+          # Check compose syntax
+          docker compose config > /dev/null
+          echo "✓ Compose syntax valid"
+
+      - name: Check OCI compatibility
+        working-directory: services/${{ matrix.service }}
+        run: |
+          # Check for bind mounts (except docker.sock which is allowed for traefik)
+          BINDS=$(docker compose config 2>/dev/null | grep -E 'type: bind' | grep -v 'docker.sock' || true)
+          
+          if [[ -n "$BINDS" ]]; then
+            echo "::error::Service contains bind mounts (not OCI compatible):"
+            echo "$BINDS"
+            exit 1
+          fi
+          
+          echo "✓ No bind mounts (OCI compatible)"
+
+      - name: Extract version
+        id: version
+        working-directory: services/${{ matrix.service }}
+        run: |
+          # Read first *_VERSION variable from .env
+          VERSION=$(grep -E '_VERSION=' .env 2>/dev/null | head -1 | cut -d'=' -f2 || echo "latest")
+          VERSION="${VERSION:-latest}"
+          
+          # Override if provided
+          if [[ -n "${{ inputs.version_override }}" ]]; then
+            VERSION="${{ inputs.version_override }}"
+          fi
+          
+          # Normalize: add 'v' prefix if starts with number
+          [[ "$VERSION" =~ ^[0-9] ]] && VERSION="v$VERSION"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+  # ============================================================================
+  # Job 3: Publish OCI Artifacts
+  # ============================================================================
+  publish:
+    name: Publish
+    needs: [detect-changes, validate]
+    if: ${{ !inputs.dry_run && needs.detect-changes.outputs.service_count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        working-directory: services/${{ matrix.service }}
+        run: |
+          # Read first *_VERSION variable from .env
+          VERSION=$(grep -E '_VERSION=' .env 2>/dev/null | head -1 | cut -d'=' -f2 || echo "latest")
+          VERSION="${VERSION:-latest}"
+          
+          # Override if provided
+          if [[ -n "${{ inputs.version_override }}" ]]; then
+            VERSION="${{ inputs.version_override }}"
+          fi
+          
+          # Use release tag if this is a release event
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          fi
+          
+          # Normalize: add 'v' prefix if starts with number
+          [[ "$VERSION" =~ ^[0-9] ]] && VERSION="v$VERSION"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Publish OCI artifact
+        working-directory: services/${{ matrix.service }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.service }}"
+          
+          echo "=== Publishing ${IMAGE}:${VERSION} ==="
+          
+          # Publish versioned tag
+          docker compose publish "${IMAGE}:${VERSION}"
+          echo "✓ Published ${IMAGE}:${VERSION}"
+          
+          # Publish latest tag (only on main branch or release)
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "release" ]]; then
+            docker compose publish "${IMAGE}:latest"
+            echo "✓ Published ${IMAGE}:latest"
+          fi
+
+      - name: Generate summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.service }}"
+          
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ### ✅ Published: ${{ matrix.service }}
+          
+          | Property | Value |
+          |----------|-------|
+          | Service | \`${{ matrix.service }}\` |
+          | Version | \`${VERSION}\` |
+          | Image | \`${IMAGE}\` |
+          
+          **Deploy with:**
+          \`\`\`bash
+          docker compose -f oci://${IMAGE}:${VERSION} --env-file .env up -d
+          \`\`\`
+          EOF
+
+  # ============================================================================
+  # Job 4: Summary
+  # ============================================================================
+  summary:
+    name: Summary
+    needs: [detect-changes, validate, publish]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate pipeline summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## OCI Publishing Summary
+          
+          | Metric | Value |
+          |--------|-------|
+          | Services detected | ${{ needs.detect-changes.outputs.service_count }} |
+          | Validation | ${{ needs.validate.result }} |
+          | Publishing | ${{ needs.publish.result }} |
+          
+          ### Usage
+          
+          Deploy any published service:
+          
+          ```bash
+          # Create environment file
+          cat > .env << 'ENVEOF'
+          COMPOSE_PROJECT_NAME=myapp
+          SERVICE_DOMAIN=app.example.com
+          # Add service-specific variables...
+          ENVEOF
+          
+          # Deploy from OCI
+          docker compose -f oci://ghcr.io/beevelop/<service>:<version> --env-file .env up -d
+          ```
+          
+          ### Available Services
+          
+          Browse all artifacts at: https://github.com/orgs/beevelop/packages
+          EOF

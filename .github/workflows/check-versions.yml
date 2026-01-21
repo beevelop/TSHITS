@@ -1,0 +1,295 @@
+# BeeCompose Upstream Version Checker
+#
+# Automatically checks for new versions of base images and creates PRs to update .env files.
+# Runs weekly or can be triggered manually.
+#
+# How it works:
+# 1. For each service, reads the current version from .env
+# 2. Queries Docker Hub/registries for latest stable versions
+# 3. If a newer version is found, updates .env and creates a PR
+#
+# This complements Dependabot by handling:
+# - Custom version variable patterns (*_VERSION in .env)
+# - Semantic version filtering (excludes -rc, -beta, -alpha)
+# - Batch updates with a single PR per service
+
+name: Check Upstream Versions
+
+on:
+  schedule:
+    # Run every Sunday at 05:00 UTC
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to check (empty for all)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run - check only, do not create PRs'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Prevent concurrent version checking runs
+concurrency:
+  group: check-versions
+  cancel-in-progress: true
+
+# Default permissions (restrictive) - jobs override as needed
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================================
+  # Job 1: Check Versions
+  # ============================================================================
+  check-versions:
+    name: Check Versions
+    runs-on: ubuntu-latest
+    outputs:
+      updates: ${{ steps.check.outputs.updates }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Check upstream versions
+        id: check
+        run: |
+          set -euo pipefail
+          
+          # Version checking registry for each image
+          declare -A IMAGE_REGISTRIES=(
+            # Format: [service]="registry/image"
+            ["traefik"]="library/traefik"
+            ["gitlab"]="sameersbn/gitlab"
+            ["bitwarden"]="vaultwarden/server"
+            ["metabase"]="metabase/metabase"
+            ["sonarqube"]="library/sonarqube"
+            ["nexus"]="sonatype/nexus3"
+            ["keycloak"]="quay.io/keycloak/keycloak"
+            ["minio"]="minio/minio"
+            ["graylog"]="graylog/graylog"
+            ["sentry"]="getsentry/sentry"
+            ["directus"]="directus/directus"
+            ["weblate"]="weblate/weblate"
+            ["huginn"]="huginn/huginn"
+            ["zabbix"]="zabbix/zabbix-server-pgsql"
+            ["rundeck"]="rundeck/rundeck"
+            ["statping"]="statping/statping"
+            ["registry"]="library/registry"
+            ["phpmyadmin"]="library/phpmyadmin"
+            ["confluence"]="atlassian/confluence"
+            ["jira"]="atlassian/jira-software"
+            ["crowd"]="atlassian/crowd"
+            ["cabot"]="cabotapp/cabot"
+            ["monica"]="monica"
+            ["redash"]="redash/redash"
+            ["duckling"]="rasa/duckling"
+            ["openvpn"]="kylemanna/openvpn"
+            ["shields"]="shieldsio/shields"
+            ["tus"]="tusproject/tusd"
+            ["dependency-track"]="dependencytrack/apiserver"
+            ["mysql"]="library/mysql"
+          )
+          
+          # Function to get latest stable tag from Docker Hub
+          get_latest_tag() {
+            local image="$1"
+            local registry_type="${2:-dockerhub}"
+            
+            case "$registry_type" in
+              dockerhub)
+                # Query Docker Hub API for tags
+                curl -sL "https://hub.docker.com/v2/repositories/${image}/tags?page_size=100" 2>/dev/null | \
+                  jq -r '.results[]?.name' 2>/dev/null | \
+                  grep -E '^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9]+)?$' | \
+                  grep -vE '(alpha|beta|rc|dev|nightly|snapshot|latest|edge)' | \
+                  sort -V | \
+                  tail -1 || echo ""
+                ;;
+              quay)
+                # Query Quay.io API
+                local repo="${image#quay.io/}"
+                curl -sL "https://quay.io/api/v1/repository/${repo}/tag/?limit=100" 2>/dev/null | \
+                  jq -r '.tags[]?.name' 2>/dev/null | \
+                  grep -E '^v?[0-9]+\.[0-9]+(\.[0-9]+)?$' | \
+                  grep -vE '(alpha|beta|rc|dev|nightly|snapshot|latest)' | \
+                  sort -V | \
+                  tail -1 || echo ""
+                ;;
+            esac
+          }
+          
+          # Function to normalize version (strip 'v' prefix for comparison)
+          normalize_version() {
+            echo "$1" | sed 's/^v//'
+          }
+          
+          # Function to compare versions (returns 0 if $1 > $2)
+          version_gt() {
+            test "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" && test "$1" != "$2"
+          }
+          
+          UPDATES="[]"
+          
+          # Determine which services to check
+          if [[ -n "${{ inputs.service }}" ]]; then
+            SERVICES="${{ inputs.service }}"
+          else
+            SERVICES="${!IMAGE_REGISTRIES[@]}"
+          fi
+          
+          echo "=== Checking upstream versions ==="
+          
+          for SERVICE in $SERVICES; do
+            if [[ ! -d "services/${SERVICE}" ]]; then
+              echo "⚠ Service not found: ${SERVICE}"
+              continue
+            fi
+            
+            ENV_FILE="services/${SERVICE}/.env"
+            if [[ ! -f "$ENV_FILE" ]]; then
+              echo "⚠ No .env file: ${SERVICE}"
+              continue
+            fi
+            
+            IMAGE="${IMAGE_REGISTRIES[$SERVICE]:-}"
+            if [[ -z "$IMAGE" ]]; then
+              echo "⚠ No registry mapping: ${SERVICE}"
+              continue
+            fi
+            
+            # Get current version from .env
+            CURRENT=$(grep -E '_VERSION=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d'=' -f2 || echo "")
+            if [[ -z "$CURRENT" ]]; then
+              echo "⚠ No version in .env: ${SERVICE}"
+              continue
+            fi
+            
+            # Determine registry type
+            REGISTRY_TYPE="dockerhub"
+            [[ "$IMAGE" == quay.io/* ]] && REGISTRY_TYPE="quay"
+            
+            # Get latest stable version
+            LATEST=$(get_latest_tag "$IMAGE" "$REGISTRY_TYPE")
+            if [[ -z "$LATEST" ]]; then
+              echo "⚠ Could not fetch latest: ${SERVICE} (${IMAGE})"
+              continue
+            fi
+            
+            # Compare versions
+            CURRENT_NORM=$(normalize_version "$CURRENT")
+            LATEST_NORM=$(normalize_version "$LATEST")
+            
+            if version_gt "$LATEST_NORM" "$CURRENT_NORM"; then
+              echo "✓ Update available: ${SERVICE} ${CURRENT} → ${LATEST}"
+              UPDATES=$(echo "$UPDATES" | jq --arg s "$SERVICE" --arg c "$CURRENT" --arg l "$LATEST" \
+                '. + [{"service": $s, "current": $c, "latest": $l}]')
+            else
+              echo "· Up to date: ${SERVICE} (${CURRENT})"
+            fi
+          done
+          
+          echo ""
+          echo "=== Summary ==="
+          COUNT=$(echo "$UPDATES" | jq 'length')
+          echo "Updates available: $COUNT"
+          echo ""
+          
+          echo "updates=$UPDATES" >> $GITHUB_OUTPUT
+
+      - name: Generate summary
+        run: |
+          UPDATES='${{ steps.check.outputs.updates }}'
+          COUNT=$(echo "$UPDATES" | jq 'length')
+          
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## Upstream Version Check
+          
+          **Updates available:** $COUNT
+          
+          | Service | Current | Latest |
+          |---------|---------|--------|
+          EOF
+          
+          echo "$UPDATES" | jq -r '.[] | "| \(.service) | \(.current) | \(.latest) |"' >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ All services are up to date!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # Job 2: Create Update PRs
+  # ============================================================================
+  create-prs:
+    name: Create PRs
+    needs: check-versions
+    if: ${{ !inputs.dry_run && needs.check-versions.outputs.updates != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        update: ${{ fromJson(needs.check-versions.outputs.updates) }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update .env file
+        run: |
+          SERVICE="${{ matrix.update.service }}"
+          CURRENT="${{ matrix.update.current }}"
+          LATEST="${{ matrix.update.latest }}"
+          ENV_FILE="services/${SERVICE}/.env"
+          
+          echo "Updating ${SERVICE}: ${CURRENT} → ${LATEST}"
+          
+          # Get the variable name
+          VAR_NAME=$(grep -E '_VERSION=' "$ENV_FILE" | head -1 | cut -d'=' -f1)
+          
+          # Update the version
+          sed -i "s/^${VAR_NAME}=.*/${VAR_NAME}=${LATEST}/" "$ENV_FILE"
+          
+          echo "Updated ${ENV_FILE}:"
+          cat "$ENV_FILE"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "${{ matrix.update.service }}: ${{ matrix.update.latest }}"
+          title: "${{ matrix.update.service }}: Update to ${{ matrix.update.latest }}"
+          body: |
+            ## Automated Version Update
+            
+            This PR updates **${{ matrix.update.service }}** from `${{ matrix.update.current }}` to `${{ matrix.update.latest }}`.
+            
+            ### Changes
+            - Updated `.env` version variable
+            
+            ### Checklist
+            - [ ] Review upstream changelog for breaking changes
+            - [ ] Test locally if needed
+            - [ ] Merge when ready
+            
+            ---
+            *This PR was automatically created by the upstream version checker workflow.*
+          branch: "update/${{ matrix.update.service }}-${{ matrix.update.latest }}"
+          base: main
+          labels: |
+            dependencies
+            automated
+          delete-branch: true

@@ -10,6 +10,12 @@ services:
       - traefik
     command: "-behind-proxy --hooks-dir /srv/tusd-hooks"
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/metrics" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -31,3 +37,4 @@ networks:
 
 volumes:
   tus_data:
+    name: ${COMPOSE_PROJECT_NAME:-tus}_app_data

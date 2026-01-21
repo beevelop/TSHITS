@@ -5,14 +5,14 @@ services:
     image: jordan/rundeck:${RUNDECK_VERSION}
     container_name: rundeck
     volumes:
-      - ./data/etc:/etc/rundeck
-      - ./data/var:/var/rundeck
-      - ./data/plugins:/opt/rundeck-plugins
-      - ./data/var-log:/var/log/rundeck
-      - ./data/ssh:/var/lib/rundeck/.ssh
-      - ./data/mysql:/var/lib/mysql
-      - ./data/logs:/var/lib/rundeck/logs
-      - ./data/var-storage:/var/lib/rundeck/var/storage
+      - rundeck_config:/etc/rundeck
+      - rundeck_var:/var/rundeck
+      - rundeck_plugins:/opt/rundeck-plugins
+      - rundeck_logs:/var/log/rundeck
+      - rundeck_ssh:/var/lib/rundeck/.ssh
+      - rundeck_mysql:/var/lib/mysql
+      - rundeck_app_logs:/var/lib/rundeck/logs
+      - rundeck_storage:/var/lib/rundeck/var/storage
     environment:
       EXTERNAL_SERVER_URL: "https://${SERVICE_DOMAIN}"
       RUNDECK_ADMIN_PASSWORD: "${RUNDECK_ADMIN_PASSWORD}"
@@ -20,6 +20,12 @@ services:
       - rundeck
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:4440/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -39,3 +45,21 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  rundeck_config:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_config
+  rundeck_var:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_var
+  rundeck_plugins:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_plugins
+  rundeck_logs:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_logs
+  rundeck_ssh:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_ssh
+  rundeck_mysql:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_mysql
+  rundeck_app_logs:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_app_logs
+  rundeck_storage:
+    name: ${COMPOSE_PROJECT_NAME:-rundeck}_storage

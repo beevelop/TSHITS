@@ -1,27 +1,23 @@
 version: "3"
 name: openvpn
 services:
+
   openvpn:
-    image: kylemanna/openvpn:${OPENVPN_VERSION}
+    image: kylemanna/openvpn:${OPENVPN_VERSION:-latest}
     container_name: openvpn
-    volumes: [ ./data/openvpn/conf:/etc/openvpn ]
-    ports: [ "0.0.0.0:53:1194/udp" ]
-    networks: [ openvpn ]
+    volumes:
+      - openvpn_config:/etc/openvpn
+    ports:
+      - "0.0.0.0:1194:1194/udp"
+    networks:
+      - openvpn
     restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "500k"
-        max-file: "50"
-    cap_add:
-      - NET_ADMIN
-  openvpn_tcp:
-    image: kylemanna/openvpn:${OPENVPN_VERSION}
-    container_name: openvpn-tcp
-    volumes: [ ./data/openvpn-tcp/conf:/etc/openvpn ]
-    ports: [ "0.0.0.0:21:1194" ]
-    networks: [ openvpn ]
-    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pgrep openvpn || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -30,5 +26,128 @@ services:
     cap_add:
       - NET_ADMIN
 
+  openvpn-add-client:
+    image: kylemanna/openvpn:${OPENVPN_VERSION:-latest}
+    container_name: openvpn-add-client
+    volumes:
+      - openvpn_config:/etc/openvpn
+    environment:
+      - CLIENT_NAME=${CLIENT_NAME:-client}
+    command:
+      - sh
+      - -c
+      - |
+        echo "Creating client: ${CLIENT_NAME}"
+        easyrsa build-client-full "${CLIENT_NAME}" nopass
+        echo "Getting client config..."
+        ovpn_getclient "${CLIENT_NAME}"
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    cap_add:
+      - NET_ADMIN
+    profiles:
+      - add-client
+  openvpn-init:
+    image: kylemanna/openvpn:${OPENVPN_VERSION:-latest}
+    container_name: openvpn-init
+    volumes:
+      - openvpn_config:/etc/openvpn
+    environment:
+      - OPENVPN_SERVER_URL=${OPENVPN_SERVER_URL:-udp://${SERVICE_DOMAIN}}
+    command:
+      - sh
+      - -c
+      - |
+        if [ -f /etc/openvpn/openvpn.conf ]; then
+          echo "OpenVPN already initialized, skipping..."
+          exit 0
+        fi
+        echo "Generating OpenVPN server config..."
+        ovpn_genconfig -u "${OPENVPN_SERVER_URL}"
+        echo "Initializing PKI (non-interactive)..."
+        echo "yes" | ovpn_initpki nopass
+        echo "OpenVPN initialization complete!"
+        echo "To add a client, run:"
+        echo "  docker compose run --rm openvpn easyrsa build-client-full CLIENT_NAME nopass"
+        echo "  docker compose run --rm openvpn ovpn_getclient CLIENT_NAME > CLIENT_NAME.ovpn"
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    cap_add:
+      - NET_ADMIN
+    profiles:
+      - init
+
+  openvpn-tcp:
+    image: kylemanna/openvpn:${OPENVPN_VERSION:-latest}
+    container_name: openvpn-tcp
+    volumes:
+      - openvpn_tcp_config:/etc/openvpn
+    ports:
+      - "0.0.0.0:443:1194"
+    networks:
+      - openvpn
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pgrep openvpn || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    cap_add:
+      - NET_ADMIN
+    profiles:
+      - tcp
+
+  openvpn-tcp-init:
+    image: kylemanna/openvpn:${OPENVPN_VERSION:-latest}
+    container_name: openvpn-tcp-init
+    volumes:
+      - openvpn_tcp_config:/etc/openvpn
+    environment:
+      - OPENVPN_SERVER_URL=${OPENVPN_TCP_SERVER_URL:-tcp://${SERVICE_DOMAIN}:443}
+    command:
+      - sh
+      - -c
+      - |
+        if [ -f /etc/openvpn/openvpn.conf ]; then
+          echo "OpenVPN TCP already initialized, skipping..."
+          exit 0
+        fi
+        echo "Generating OpenVPN TCP server config..."
+        ovpn_genconfig -u "${OPENVPN_SERVER_URL}"
+        echo "Initializing PKI (non-interactive)..."
+        echo "yes" | ovpn_initpki nopass
+        echo "OpenVPN TCP initialization complete!"
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    cap_add:
+      - NET_ADMIN
+    profiles:
+      - tcp-init
+
 networks:
   openvpn:
+
+
+volumes:
+  openvpn_config:
+    name: ${COMPOSE_PROJECT_NAME:-openvpn}_udp_config
+  openvpn_tcp_config:
+    name: ${COMPOSE_PROJECT_NAME:-openvpn}_tcp_config

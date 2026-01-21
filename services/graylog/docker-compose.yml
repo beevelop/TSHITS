@@ -16,6 +16,12 @@ services:
     networks:
       - graylog
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -64,6 +70,12 @@ services:
       - graylog
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/api/system/lbstatus" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -86,6 +98,12 @@ services:
     networks:
       - graylog
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -100,5 +118,8 @@ networks:
 
 volumes:
   mongo_data:
+    name: ${COMPOSE_PROJECT_NAME:-graylog}_mongo_data
   es_data:
+    name: ${COMPOSE_PROJECT_NAME:-graylog}_elasticsearch_data
   graylog_journal:
+    name: ${COMPOSE_PROJECT_NAME:-graylog}_journal_data

@@ -1,15 +1,16 @@
 version: "3"
 name: traefik
 services:
+
   traefik:
     image: traefik:${TRAEFIK_VERSION}
     container_name: traefik
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./data/acme/:/etc/traefik/acme/
-      - ./certs/:/certs/:ro
-      - ./data/logs/:/etc/traefik/logs/
+      - traefik_config:/etc/traefik:ro
+      - acme_data:/etc/traefik/acme
+      - logs_data:/etc/traefik/logs
+      - certs_data:/certs:ro
     environment:
       - CF_API_EMAIL=${CLOUDFLARE_EMAIL}
       - CF_API_KEY=${CLOUDFLARE_API_KEY}
@@ -20,6 +21,12 @@ services:
     networks:
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "traefik", "healthcheck", "--ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -32,8 +39,82 @@ services:
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
       - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH}"
+  traefik-init:
+    image: alpine:3.19
+    container_name: traefik-init
+    volumes:
+      - traefik_config:/config
+    environment:
+      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL:-${CLOUDFLARE_EMAIL}}
+      - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN}
+    command:
+      - sh
+      - -c
+      - |
+        cat > /config/traefik.yml << 'EOFCONFIG'
+        api:
+          dashboard: true
+          insecure: false
+
+        ping:
+          entryPoint: traefik
+
+        entryPoints:
+          web:
+            address: ":80"
+            http:
+              redirections:
+                entryPoint:
+                  to: websecure
+                  scheme: https
+          websecure:
+            address: ":443"
+          traefik:
+            address: ":8080"
+
+        certificatesResolvers:
+          letsencrypt:
+            acme:
+              email: "${TRAEFIK_EMAIL}"
+              storage: /etc/traefik/acme/acme.json
+              dnsChallenge:
+                provider: cloudflare
+                delayBeforeCheck: 0
+
+        providers:
+          docker:
+            exposedByDefault: false
+            network: traefik_default
+
+        log:
+          level: INFO
+          filePath: /etc/traefik/logs/traefik.log
+
+        accessLog:
+          filePath: /etc/traefik/logs/access.log
+        EOFCONFIG
+        echo "Traefik config generated successfully at /config/traefik.yml"
+        cat /config/traefik.yml
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    profiles:
+      - init
 
 networks:
   traefik:
     name: traefik_default
     driver: bridge
+
+volumes:
+  traefik_config:
+    name: ${COMPOSE_PROJECT_NAME:-traefik}_config
+  acme_data:
+    name: ${COMPOSE_PROJECT_NAME:-traefik}_acme_data
+  logs_data:
+    name: ${COMPOSE_PROJECT_NAME:-traefik}_logs_data
+  certs_data:
+    name: ${COMPOSE_PROJECT_NAME:-traefik}_certs_data

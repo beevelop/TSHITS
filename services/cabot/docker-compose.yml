@@ -24,12 +24,18 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: cabot-postgres
     volumes:
-      - ./data/postgres/:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
     networks:
       - cabot
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -42,6 +48,12 @@ services:
     networks:
       - cabot
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -63,6 +75,12 @@ services:
       - traefik
     command: sh -c "cabot migrate && gunicorn cabot.wsgi:application -b 0.0.0.0:5000 --workers=5"
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -101,3 +119,7 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-cabot}_postgres_data

@@ -4,8 +4,10 @@ services:
   confluence:
     image: atlassian/confluence:${CONFLUENCE_VERSION}
     container_name: confluence
+    depends_on:
+      - postgresql
     volumes:
-      - confluencedata:/var/atlassian/application-data/confluence/
+      - confluence_data:/var/atlassian/application-data/confluence/
     environment:
       - 'ATL_PROXY_NAME=${SERVICE_DOMAIN}'
       - 'ATL_PROXY_PORT=443'
@@ -23,6 +25,12 @@ services:
       - traefik
       - confluence
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8090/status" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
     logging:
       driver: "json-file"
       options:
@@ -41,7 +49,7 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: confluence-postgres
     volumes:
-      - ./data/postgres/:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
@@ -49,6 +57,12 @@ services:
     networks:
       - confluence
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -62,5 +76,7 @@ networks:
       name: traefik_default
 
 volumes:
-  confluencedata:
-    external: false
+  confluence_data:
+    name: ${COMPOSE_PROJECT_NAME:-confluence}_app_data
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-confluence}_postgres_data

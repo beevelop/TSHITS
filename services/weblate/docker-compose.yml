@@ -7,6 +7,12 @@ services:
     networks:
       - weblate
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "echo stats | nc localhost 11211 | grep -q uptime" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -17,7 +23,7 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: weblate-postgres
     volumes:
-      - ./data/postgres/:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -25,6 +31,12 @@ services:
     networks:
       - weblate
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -37,6 +49,12 @@ services:
     networks:
       - weblate
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     logging:
       driver: "json-file"
       options:
@@ -51,7 +69,7 @@ services:
       - postgres
       - redis
     volumes:
-      - ./data/weblate:/app/data
+      - weblate_data:/app/data
     environment:
       WEBLATE_SITE_DOMAIN: ${SERVICE_DOMAIN}
       WEBLATE_ALLOWED_HOSTS: ${SERVICE_DOMAIN}
@@ -65,6 +83,12 @@ services:
       - weblate
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthz/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -84,3 +108,9 @@ networks:
   traefik:
     name: traefik_default
     external: true
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-weblate}_postgres_data
+  weblate_data:
+    name: ${COMPOSE_PROJECT_NAME:-weblate}_app_data

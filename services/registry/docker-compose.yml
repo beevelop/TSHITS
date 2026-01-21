@@ -5,9 +5,8 @@ services:
     image: registry:${REGISTRY_VERSION}
     container_name: registry
     volumes:
-      - ./data/reg:/var/lib/registry
-      - ./data/certs:/certs
-      - ./auth:/auth
+      - registry_data:/var/lib/registry
+      - registry_auth:/auth
     environment:
       REGISTRY_AUTH: htpasswd
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
@@ -16,6 +15,12 @@ services:
     networks:
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5000/v2/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -34,3 +39,9 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  registry_data:
+    name: ${COMPOSE_PROJECT_NAME:-registry}_data
+  registry_auth:
+    name: ${COMPOSE_PROJECT_NAME:-registry}_auth

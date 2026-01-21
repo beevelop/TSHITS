@@ -5,12 +5,21 @@ services:
     image: minio/minio:${MINIO_VERSION}
     container_name: minio
     volumes:
-      - ./data/export:/export
-      - ./data/config:/root/.minio
+      - minio_data:/data
+      - minio_config:/root/.minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     networks:
       - traefik
-    command: server /export
+    command: server /data --console-address ":9001"
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -29,3 +38,9 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  minio_data:
+    name: ${COMPOSE_PROJECT_NAME:-minio}_data
+  minio_config:
+    name: ${COMPOSE_PROJECT_NAME:-minio}_config

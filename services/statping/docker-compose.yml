@@ -5,14 +5,20 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: statping-postgres
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: Swordfish
-      POSTGRES_USER: statping
-      POSTGRES_DB: statping
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
+      POSTGRES_USER: ${DB_USER:-statping}
+      POSTGRES_DB: ${DB_NAME:-statping}
     networks:
       - statping
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-statping}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -25,17 +31,23 @@ services:
     depends_on:
       - postgres_statping
     volumes:
-      - ./data/app:/app
+      - statping_data:/app
     environment:
       DB_CONN: postgres
       DB_HOST: postgres_statping
-      DB_USER: statping
-      DB_PASS: Swordfish
-      DB_DATABASE: statping
+      DB_USER: ${DB_USER:-statping}
+      DB_PASS: ${DB_PASS:-Swordfish}
+      DB_DATABASE: ${DB_NAME:-statping}
     networks:
       - traefik
       - statping
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -55,3 +67,9 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-statping}_postgres_data
+  statping_data:
+    name: ${COMPOSE_PROJECT_NAME:-statping}_app_data

@@ -43,6 +43,12 @@ services:
     networks:
       - sentry
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "echo stats | nc localhost 11211 | grep -q uptime" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -53,13 +59,19 @@ services:
     image: postgres:${POSTGRES_TAG}
     container_name: sentry-postgres
     volumes:
-      - ./data/postgres/:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
     networks:
       - sentry
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -70,10 +82,16 @@ services:
     image: redis:${REDIS_TAG}
     container_name: sentry-redis
     volumes:
-      - ./data/redis/:/data
+      - redis_data:/data
     networks:
       - sentry
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     logging:
       driver: "json-file"
       options:
@@ -88,8 +106,8 @@ services:
       - postgres
       - redis
     volumes:
-      - ./data/sentry/:/var/lib/sentry/files
-      - ./sentry.conf.py:/etc/sentry/sentry.conf.py
+      - sentry_files:/var/lib/sentry/files
+      - sentry_config:/etc/sentry
     environment:
       SENTRY_DB_NAME: ${DB_NAME}
       SENTRY_DB_USER: ${DB_USER}
@@ -99,6 +117,12 @@ services:
       - sentry
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/_health/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -118,3 +142,13 @@ networks:
   traefik:
     external:
       name: traefik_default
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-sentry}_postgres_data
+  redis_data:
+    name: ${COMPOSE_PROJECT_NAME:-sentry}_redis_data
+  sentry_files:
+    name: ${COMPOSE_PROJECT_NAME:-sentry}_files
+  sentry_config:
+    name: ${COMPOSE_PROJECT_NAME:-sentry}_config

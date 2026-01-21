@@ -16,11 +16,18 @@ services:
       KC_PROXY: edge
       KC_HOSTNAME: ${SERVICE_DOMAIN}
       KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
     networks:
       - keycloak
       - traefik
     command: start
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;if [ $? -eq 0 ]; then exit 0; else exit 1; fi" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -47,6 +54,12 @@ services:
     networks:
       - keycloak
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-keycloak} -d ${POSTGRES_DB:-keycloak}" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -61,3 +74,4 @@ networks:
 
 volumes:
   postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-keycloak}_postgres_data

@@ -5,7 +5,7 @@ services:
     image: vaultwarden/server:${VAULTWARDEN_VERSION}
     container_name: bitwarden
     volumes:
-      - ./data:/data/
+      - bitwarden_data:/data/
     environment:
       - SIGNUPS_ALLOWED=false
       - SHOW_PASSWORD_HINT=false
@@ -20,6 +20,12 @@ services:
     networks:
       - traefik
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost/alive" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -38,3 +44,7 @@ networks:
   traefik:
     name: traefik_default
     external: true
+
+volumes:
+  bitwarden_data:
+    name: ${COMPOSE_PROJECT_NAME:-bitwarden}_data

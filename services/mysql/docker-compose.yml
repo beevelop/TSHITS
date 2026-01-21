@@ -3,15 +3,24 @@ name: mysql
 services:
   mysql:
     image: mysql:${MYSQL_VERSION}
+    container_name: mysql
     volumes:
-      - ./data/mysql:/var/lib/mysql
-      - ./conf/:/etc/mysql/conf.d
+      - mysql_data:/var/lib/mysql
+      - mysql_config:/etc/mysql/conf.d
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-    ports: [ "0.0.0.0:3306:3306" ]
-    networks: [ mysql ]
+    ports:
+      - "0.0.0.0:3306:3306"
+    networks:
+      - mysql
     command: "--character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci"
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -21,4 +30,9 @@ services:
 networks:
   mysql:
 
-    #docker exec some-mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD"' > /some/path/on/your/host/all-databases.sql
+
+volumes:
+  mysql_data:
+    name: ${COMPOSE_PROJECT_NAME:-mysql}_data
+  mysql_config:
+    name: ${COMPOSE_PROJECT_NAME:-mysql}_config
