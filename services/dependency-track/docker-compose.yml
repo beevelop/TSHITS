@@ -2,7 +2,7 @@ version: "3"
 
 services:
   dtrack:
-    image: owasp/dependency-track:${DEPENDENCY_TRACK_VERSION}
+    image: dependencytrack/bundled:${DEPENDENCY_TRACK_VERSION}
     labels:
       - "traefik.enable=true"
       - "traefik.backend=dtrack"

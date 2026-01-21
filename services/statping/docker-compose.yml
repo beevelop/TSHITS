@@ -1,7 +1,7 @@
 version: "3"
 services:
   statping:
-    image: statping-ng/statping-ng:${STATPING_VERSION}
+    image: adamboutcher/statping-ng:${STATPING_VERSION}
     restart: unless-stopped
     networks: [ traefik, statping ]
     labels:

@@ -1,7 +1,7 @@
 version: "3"
 services:
   sonarqube:
-    image: sonarqube:${SONARQUBE_VERSION}-alpine
+    image: sonarqube:${SONARQUBE_VERSION}
     environment:
       - SONARQUBE_JDBC_URL=jdbc:postgresql://database:5432/sonar
       - SONARQUBE_JDBC_USERNAME=sonar
