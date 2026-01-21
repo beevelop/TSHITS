@@ -1,6 +1,6 @@
 # CI/CD Pipeline Documentation
 
-This document describes the GitHub Actions CI/CD pipeline for T-SHITS, including how to use it, interpret results, and troubleshoot common issues.
+This document describes the GitHub Actions CI/CD pipeline for BeeCompose, including how to use it, interpret results, and troubleshoot common issues.
 
 ## Table of Contents
 
@@ -103,7 +103,7 @@ The pipeline runs on:
 
 ## Adding New Services
 
-When adding a new service to T-SHITS, ensure it works with the CI/CD pipeline:
+When adding a new service to BeeCompose, ensure it works with the CI/CD pipeline:
 
 ### Requirements
 

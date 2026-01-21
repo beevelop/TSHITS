@@ -1,4 +1,4 @@
-# T-SHITS CI/CD Pipeline
+# BeeCompose CI/CD Pipeline
 # Sequential Docker Compose Testing with CVE Scanning
 #
 # This workflow validates all Docker Compose configurations and scans images for vulnerabilities.

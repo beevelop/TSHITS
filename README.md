@@ -1,8 +1,8 @@
-# T-SHITS
+# BeeCompose
 
-**T**he **S**elf-**H**osted, **I**ndependent **T**echnology **S**tack (pronounced "T-SHITS")
+**Production-ready Docker Compose stacks. Curated.**
 
-A curated collection of Docker Compose configurations for self-hosted services. Started in April 2020, T-SHITS provides production-ready setups for 30 popular self-hosted applications with built-in reverse proxy integration, encrypted secrets management, and automated backups.
+A curated collection of Docker Compose configurations for self-hosted services. Started in April 2020, BeeCompose provides production-ready setups for 30+ popular self-hosted applications with built-in reverse proxy integration, encrypted secrets management, and automated backups.
 
 ## Features
 
@@ -17,8 +17,8 @@ A curated collection of Docker Compose configurations for self-hosted services. 
 
 ```bash
 # Clone the repository
-git clone https://github.com/beevelop/TSHITS.git
-cd TSHITS
+git clone https://github.com/beevelop/beecompose.git
+cd beecompose
 
 # Configure your environment
 echo "production" > .bee.environ
@@ -48,7 +48,7 @@ cp .env.example .env.production
 ## Project Structure
 
 ```
-TSHITS/
+beecompose/
 ├── .bee.environ          # Environment name (e.g., "production")
 ├── .bee.pass             # Master encryption key
 ├── meta/

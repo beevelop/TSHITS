@@ -1,12 +1,12 @@
 # AGENTS.md
 
-AI agent operating manual for T-SHITS. **Read completely before any action.**
+AI agent operating manual for BeeCompose. **Read completely before any action.**
 
 ---
 
 ## Project Overview
 
-**T-SHITS** – The Self-Hosted, Independent Technology Stack.
+**BeeCompose** – Production-ready Docker Compose stacks. Curated.
 
 - **Created:** April 2020
 - **Purpose:** Docker-Compose configurations for self-hosted services
@@ -113,7 +113,7 @@ The linter runs automatically in the CI/CD pipeline (Job 1). All errors must be 
 ## Project Structure
 
 ```
-TSHITS/
+beecompose/
 ├── .bee.environ          # Environment slug (e.g., "production")
 ├── .bee.pass             # Master encryption key (NEVER commit real value)
 ├── .dclintrc.yaml        # Docker Compose linter configuration

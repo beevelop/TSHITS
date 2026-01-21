@@ -1,4 +1,4 @@
-# Docker Compose Linter Configuration for T-SHITS
+# Docker Compose Linter Configuration for BeeCompose
 # https://github.com/zavoloklom/docker-compose-linter
 #
 # Rule Severity Levels:
@@ -82,7 +82,7 @@ rules:
   no-build-and-image: 2
 
   # DISABLED: version field check
-  # T-SHITS requires version: "3" for all compose files per AGENTS.md
+  # BeeCompose requires version: "3" for all compose files per AGENTS.md
   # The linter recommends removing it, but we keep it for compatibility
   no-version-field: 0
 
