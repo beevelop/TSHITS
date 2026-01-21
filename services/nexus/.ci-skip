@@ -1,0 +1,3 @@
+# Skip CI testing for this service
+# Reason: Requires `./bee prepare` to create data directory with proper permissions (chmod 777)
+# The nexus container runs as UID 200 and cannot write to root-owned directories

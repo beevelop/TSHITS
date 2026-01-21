@@ -68,7 +68,9 @@ services:
     ports:
       - "0.0.0.0:5000:5000"
     networks:
-      - redash
+      redash:
+        aliases:
+          - redash
     command: server
     restart: unless-stopped
     logging:
@@ -88,6 +90,7 @@ services:
       REDASH_LOG_LEVEL: "INFO"
       REDASH_REDIS_URL: "redis://redis:6379/0"
       REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
       QUEUES: "queries,scheduled_queries,celery"
       WORKERS_COUNT: 2
     networks:
@@ -103,5 +106,5 @@ services:
 networks:
   redash:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
