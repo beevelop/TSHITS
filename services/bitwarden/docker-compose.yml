@@ -13,7 +13,7 @@ services:
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_FROM=${SMTP_FROM}
       - SMTP_PORT=${SMTP_PORT}
-      - SMTP_SECURITY=${SMTP_SSL}
+      - SMTP_SECURITY=${SMTP_SECURITY}
       - SMTP_USERNAME=${SMTP_USERNAME}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - DOMAIN=https://${SERVICE_DOMAIN}
@@ -36,5 +36,5 @@ services:
 
 networks:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true

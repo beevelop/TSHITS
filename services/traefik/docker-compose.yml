@@ -17,6 +17,8 @@ services:
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
       - "0.0.0.0:8080:8080"
+    networks:
+      - traefik
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -32,6 +34,6 @@ services:
       - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH}"
 
 networks:
-  default:
+  traefik:
     name: traefik_default
     driver: bridge

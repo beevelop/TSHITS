@@ -19,6 +19,7 @@ services:
     volumes:
       - ./data/postgres/:/var/lib/postgresql/data
     environment:
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
     networks:
@@ -52,7 +53,9 @@ services:
     volumes:
       - ./data/weblate:/app/data
     environment:
+      WEBLATE_SITE_DOMAIN: ${SERVICE_DOMAIN}
       WEBLATE_ALLOWED_HOSTS: ${SERVICE_DOMAIN}
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_HOST: postgres
@@ -79,5 +82,5 @@ services:
 networks:
   weblate:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true

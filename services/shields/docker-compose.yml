@@ -9,7 +9,9 @@ services:
       GH_CLIENT_SECRET: ${GH_CLIENT_SECRET}
       INFOSITE: http://${SERVICE_DOMAIN}
     networks:
-      - shields
+      shields:
+        aliases:
+          - backend
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -43,5 +45,5 @@ services:
 networks:
   shields:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
