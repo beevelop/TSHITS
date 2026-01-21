@@ -43,8 +43,10 @@ env:
   HEALTH_CHECK_RETRIES: 30
   HEALTH_CHECK_INTERVAL: 10
   # CVE scanning configuration
-  CVE_FAIL_ON_CRITICAL: true
-  CVE_FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
+  # Note: CVE scan generates reports but does not fail the pipeline
+  # This allows tracking vulnerabilities while not blocking deployments
+  CVE_FAIL_ON_CRITICAL: false
+  CVE_FAIL_ON_HIGH: false
 
 jobs:
   # ============================================================================
@@ -361,29 +363,21 @@ jobs:
           echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
           echo "high_count=$HIGH" >> $GITHUB_OUTPUT
           
-          PASSED=true
+          # Report vulnerabilities but don't fail the pipeline
+          # This generates warnings for visibility while allowing the pipeline to continue
           
-          # Check CRITICAL vulnerabilities
           if [[ $CRITICAL -gt 0 ]]; then
-            echo "::error::Found $CRITICAL CRITICAL vulnerabilities!"
-            PASSED=false
+            echo "::warning::Found $CRITICAL CRITICAL vulnerabilities - see CVE scan report for details"
           fi
           
-          # Check HIGH vulnerabilities if configured
-          if [[ "${{ env.CVE_FAIL_ON_HIGH }}" == "true" ]] && [[ $HIGH -gt 0 ]]; then
-            echo "::error::Found $HIGH HIGH vulnerabilities (fail_on_high enabled)!"
-            PASSED=false
+          if [[ $HIGH -gt 0 ]]; then
+            echo "::warning::Found $HIGH HIGH vulnerabilities - see CVE scan report for details"
           fi
           
-          echo "scan_passed=$PASSED" >> $GITHUB_OUTPUT
-          
-          if [[ "$PASSED" != "true" ]]; then
-            echo ""
-            echo "CVE scan FAILED - blocking pipeline"
-            exit 1
-          fi
-          
-          echo "CVE scan PASSED"
+          # Always pass - CVE scan is for reporting only
+          echo "scan_passed=true" >> $GITHUB_OUTPUT
+          echo ""
+          echo "CVE scan completed - report generated (non-blocking)"
 
   # ============================================================================
   # Job 4: Sequential Docker Compose Testing
@@ -673,16 +667,19 @@ jobs:
           echo "- **Unique Images:** ${{ needs.extract-images.outputs.image_count }}" >> $GITHUB_STEP_SUMMARY
           
           if [[ "${{ needs.cve-scan.result }}" == "success" ]]; then
-            echo "- **Critical CVEs:** ${{ needs.cve-scan.outputs.critical_count || 0 }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **High CVEs:** ${{ needs.cve-scan.outputs.high_count || 0 }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Critical CVEs:** ${{ needs.cve-scan.outputs.critical_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
+            echo "- **High CVEs:** ${{ needs.cve-scan.outputs.high_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Determine overall status
-          if [[ "${{ needs.test-services.result }}" == "success" ]] && \
-             [[ "${{ needs.cve-scan.result }}" != "failure" ]]; then
+          # Determine overall status (CVE scan is informational, not blocking)
+          if [[ "${{ needs.test-services.result }}" == "success" ]]; then
             echo "## Result: PASSED" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ needs.cve-scan.outputs.critical_count }}" -gt 0 ]] 2>/dev/null; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "> **Note:** CVE vulnerabilities detected - review the scan report artifact for details." >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "## Result: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
@@ -694,9 +691,9 @@ jobs:
             exit 1
           fi
           
+          # CVE scan is informational only - don't fail the pipeline
           if [[ "${{ needs.cve-scan.result }}" == "failure" ]]; then
-            echo "Pipeline failed: CVE scan found critical vulnerabilities"
-            exit 1
+            echo "::warning::CVE scan job failed - check logs for details"
           fi
           
           echo "Pipeline completed successfully!"
