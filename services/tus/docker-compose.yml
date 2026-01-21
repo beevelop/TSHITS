@@ -1,7 +1,7 @@
 version: "3"
 services:
   tus:
-    image: tusproject/tusd
+    image: tusproject/tusd:${TUS_VERSION}
     restart: unless-stopped
     networks: [traefik]
     command: "-behind-proxy --hooks-dir /srv/tusd-hooks"
@@ -11,7 +11,7 @@ services:
       - "traefik.enable=true"
       - "traefik.backend=tus"
       - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
-      - "traefik.port=1080"
+      - "traefik.port=8080"
     logging:
       driver: "json-file"
       options:

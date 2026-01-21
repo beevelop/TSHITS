@@ -2,7 +2,7 @@ version: "3"
 services:
   nexus:
     container_name: nexus
-    image: clearent/nexus:${NEXUS_VERSION}
+    image: sonatype/nexus3:${NEXUS_VERSION}
     networks: [ traefik ]
     volumes:
       - "./data/nexus/:/nexus-data"

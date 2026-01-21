@@ -1,15 +1,19 @@
 version: "3"
 services:
   confluence:
-    image: blacklabelops/confluence:${CONFLUENCE_VERSION}
+    image: atlassian/confluence:${CONFLUENCE_VERSION}
     hostname: confluence
     environment:
-      - 'CATALINA_OPTS= -Xms256m -Xmx1g'
-      - 'CONFLUENCE_PROXY_NAME=${SERVICE_DOMAIN}'
-      - 'CONFLUENCE_PROXY_PORT=443'
-      - 'CONFLUENCE_PROXY_SCHEME=https'
-      - 'SETENV_JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
-      - 'SETENV_JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
+      - 'ATL_PROXY_NAME=${SERVICE_DOMAIN}'
+      - 'ATL_PROXY_PORT=443'
+      - 'ATL_TOMCAT_SCHEME=https'
+      - 'ATL_TOMCAT_SECURE=true'
+      - 'JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
+      - 'JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
+      - 'ATL_JDBC_URL=jdbc:postgresql://postgresql:5432/${POSTGRES_DB}'
+      - 'ATL_JDBC_USER=${POSTGRES_USER}'
+      - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS}'
+      - 'ATL_DB_TYPE=postgresql'
     labels:
       - "traefik.enable=true"
       - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
@@ -18,7 +22,7 @@ services:
     ports: [ "8091:8091" ]
     links:
       - postgresql
-    volumes: [ "confluencedata:/var/atlassian/confluence/" ]
+    volumes: [ "confluencedata:/var/atlassian/application-data/confluence/" ]
     networks: [traefik,confluence]
     restart: unless-stopped
     logging:

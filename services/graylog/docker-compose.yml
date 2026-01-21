@@ -13,7 +13,7 @@ services:
         max-file: "50"
   
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELASTICSEARCH_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION}
     networks: [ graylog ]
     volumes:
       - es_data:/usr/share/elasticsearch/data
@@ -21,6 +21,8 @@ services:
       - http.host=0.0.0.0
       - transport.host=localhost
       - network.host=0.0.0.0
+      - discovery.type=single-node
+      - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:
       memlock:

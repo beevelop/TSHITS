@@ -1,10 +1,12 @@
 version: "3"
 services:
   database:
-    image: monitoringartist/zabbix-db-mariadb
+    image: mariadb:${MARIADB_VERSION}
     environment:
       - MARIADB_USER=${DB_USER}
-      - MARIADB_PASS=${DB_PASS}
+      - MARIADB_PASSWORD=${DB_PASS}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASS}
+      - MARIADB_DATABASE=zabbix
     volumes:
       - "./data/mysql:/var/lib/mysql"
       - "/etc/localtime:/etc/localtime:ro"
@@ -17,27 +19,44 @@ services:
         max-file: "50"
 
   server:
-    image: monitoringartist/zabbix-xxl:${ZABBIX_VERSION}
-    ports: [ "10051:10051", "10052:10052" ]
-    links: [ "database:zabbix.db" ]
+    image: zabbix/zabbix-server-mysql:${ZABBIX_VERSION}
+    ports: [ "10051:10051" ]
     networks: [traefik,zabbix]
     environment:
-      - ZS_DBHost=zabbix.db
-      - ZS_DBUser=${DB_USER}
-      - ZS_DBPassword=${DB_PASS}
-      - XXL_apiuser=api
-      - XXL_apipass=Swordfish
-      - XXL_grapher=true
+      - DB_SERVER_HOST=database
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_DATABASE=zabbix
+    depends_on: [database]
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "./data/zabbix/alertscripts:/usr/lib/zabbix/alertscripts"
+      - "./data/zabbix/externalscripts:/usr/lib/zabbix/externalscripts"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+  web:
+    image: zabbix/zabbix-web-nginx-mysql:${ZABBIX_VERSION}
+    networks: [traefik,zabbix]
+    environment:
+      - ZBX_SERVER_HOST=server
+      - DB_SERVER_HOST=database
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_DATABASE=zabbix
+      - PHP_TZ=Europe/Berlin
+    depends_on: [server,database]
     labels:
       - "traefik.enable=true"
       - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"
       - "traefik.docker.network=traefik_default"
-      - "traefik.port=80"
+      - "traefik.port=8080"
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
-      - "./data/zabbix/custom-config:/etc/custom-config"
-      - "./data/zabbix/server:/usr/local/share/zabbix"
-      - "./data/zabbix/modules:/usr/lib/zabbix/modules"
     restart: unless-stopped
     logging:
       driver: "json-file"

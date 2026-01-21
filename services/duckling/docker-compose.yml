@@ -1,7 +1,7 @@
 version: "3"
 services:
   duckling:
-    image: rasa/duckling
+    image: rasa/duckling:${DUCKLING_VERSION}
     restart: unless-stopped
     networks: [traefik]
     labels:
@@ -14,9 +14,6 @@ services:
       options:
         max-size: "500k"
         max-file: "50"
-
-volumes:
-  tus_data:
 
 networks:
   traefik:

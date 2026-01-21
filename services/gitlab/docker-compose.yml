@@ -43,9 +43,9 @@ services:
         max-file: "50"
 
   redis:
-    image: sameersbn/redis:latest
+    image: redis:7-alpine
     command: redis-server --protected-mode no
-    volumes: [ "./data/redis:/var/lib/redis" ]
+    volumes: [ "./data/redis:/data" ]
     networks: [gitlab]
     restart: unless-stopped
     logging:

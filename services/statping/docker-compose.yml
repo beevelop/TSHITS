@@ -1,7 +1,7 @@
 version: "3"
 services:
   statping:
-    image: hunterlong/statping
+    image: statping-ng/statping-ng:${STATPING_VERSION}
     restart: unless-stopped
     networks: [ traefik, statping ]
     labels:
@@ -26,7 +26,7 @@ services:
       DB_DATABASE: statping
 
   postgres_statping:
-    image: postgres
+    image: postgres:${POSTGRES_TAG}
     restart: unless-stopped
     networks: [ statping ]
     volumes:

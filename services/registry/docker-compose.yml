@@ -1,7 +1,7 @@
 version: "3"
 services:
   registry:
-    image: registry:2
+    image: registry:${REGISTRY_VERSION}
     environment:
       REGISTRY_AUTH: htpasswd
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
@@ -15,6 +15,7 @@ services:
       - "./data/reg:/var/lib/registry"
       - "./data/certs:/certs"
       - "./auth:/auth"
+    networks: [traefik]
     restart: unless-stopped
     logging:
         driver: "json-file"
@@ -23,7 +24,6 @@ services:
           max-file: "50"
 
 networks:
-  rundeck:
   traefik:
     external:
       name: traefik_default

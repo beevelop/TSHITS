@@ -3,20 +3,23 @@ services:
   jira:
     depends_on:
       - postgresql
-    image: blacklabelops/jira:${JIRA_VERSION}
+    image: atlassian/jira-software:${JIRA_VERSION}
     networks: [traefik,jira]
-    volumes: [ "jiradata:/var/atlassian/jira/" ]
+    volumes: [ "jiradata:/var/atlassian/application-data/jira/" ]
     links:
       - postgresql
     environment:
-      # take from env
-      - 'JIRA_DATABASE_URL=postgresql://${POSTGRES_USER}@postgresql/${POSTGRES_DB}'
-      - 'JIRA_DB_PASSWORD=${POSTGRES_PASS}'
-      - 'SETENV_JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
-      - 'SETENV_JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
-      - 'JIRA_PROXY_NAME=${SERVICE_DOMAIN}'
-      - 'JIRA_PROXY_PORT=443'
-      - 'JIRA_PROXY_SCHEME=https'
+      - 'ATL_JDBC_URL=jdbc:postgresql://postgresql:5432/${POSTGRES_DB}'
+      - 'ATL_JDBC_USER=${POSTGRES_USER}'
+      - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS}'
+      - 'ATL_DB_DRIVER=org.postgresql.Driver'
+      - 'ATL_DB_TYPE=postgres72'
+      - 'JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
+      - 'JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
+      - 'ATL_PROXY_NAME=${SERVICE_DOMAIN}'
+      - 'ATL_PROXY_PORT=443'
+      - 'ATL_TOMCAT_SCHEME=https'
+      - 'ATL_TOMCAT_SECURE=true'
     labels:
       - "traefik.enable=true"
       - "traefik.frontend.rule=Host:${SERVICE_DOMAIN}"

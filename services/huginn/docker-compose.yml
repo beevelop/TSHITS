@@ -15,7 +15,7 @@ services:
         max-file: "50"
 
   huginn:
-    image: cantino/huginn:${HUGINN_HASH}
+    image: ghcr.io/huginn/huginn:${HUGINN_VERSION}
     environment:
       DATABASE_ADAPTER: postgresql
       DATABASE_HOST: postgres
