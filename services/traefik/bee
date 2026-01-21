@@ -17,15 +17,24 @@ do_health() {
 do_nuke() {
   echo "📑  Deleting files and folders"
   rm traefik.toml
-  sudo rm -rf ./data/traefik/acme
+  sudo rm -rf ./data/acme
 }
 
 do_prepare() {
   echo "📜  Generating traefik.toml.tpl to traefik.toml"
   envsubst < traefik.toml.tpl > traefik.toml
 
-  echo "🗂  Preparing folders (acme)"
-  sudo mkdir -p ./data/traefik/acme/
+  echo "🗂  Preparing folders (acme, logs, certs)"
+  mkdir -p ./data/acme
+  mkdir -p ./data/logs
+  mkdir -p ./certs
+  
+  echo "🔐  Generating self-signed certificate"
+  if [ ! -f ./certs/traefik.key ]; then
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout ./certs/traefik.key -out ./certs/traefik.crt \
+      -subj "/CN=localhost" 2>/dev/null
+  fi
 }
 
 . ../../meta/bee.sh "${@}"

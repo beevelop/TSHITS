@@ -24,6 +24,7 @@ services:
     image: redash/redash:${REDASH_VERSION}
     command: scheduler
     networks: [redash]
+    depends_on: ["postgres", "redis"]
     environment:
       PYTHONUNBUFFERED: 0
       REDASH_LOG_LEVEL: "INFO"
@@ -52,6 +53,8 @@ services:
     image: postgres:${POSTGRES_TAG}
     volumes: ["./data/postgres:/var/lib/postgresql/data"]
     networks: [redash]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
     restart: unless-stopped
     logging:
       driver: "json-file"

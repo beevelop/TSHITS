@@ -15,9 +15,10 @@ do_health() {
 #  sudo rm -rf ./data/nexus/data
 #}
 
-# do_prepare() {
-#   echo "🗂  Preparing folders (data)"
-#   sudo mkdir -p ./data/nexus/data
-# }
+do_prepare() {
+  echo "🗂  Preparing folders (data)"
+  mkdir -p ./data/nexus
+  chmod 777 ./data/nexus
+}
 
 . ../../meta/bee.sh "${@}"
