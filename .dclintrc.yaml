@@ -1,0 +1,97 @@
+# Docker Compose Linter Configuration for T-SHITS
+# https://github.com/zavoloklom/docker-compose-linter
+#
+# Rule Severity Levels:
+#   0 = Disabled
+#   1 = Warning
+#   2 = Error
+#
+# Auto-fix Usage:
+#   To automatically fix many issues, run:
+#   docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services -r --fix
+#
+#   This will fix:
+#   - Remove quotes from volume paths
+#   - Add quotes to ports
+#   - Sort services alphabetically
+#   - Sort dependencies alphabetically
+#   - Reorder service keys
+
+# Exclude directories from linting
+exclude:
+  - "node_modules"
+  - ".git"
+  - "backups"
+  - "data"
+
+# Rule Configuration
+# Note: This project uses version: "3" for all compose files (legacy requirement)
+# and Traefik v1 labels (legacy stack)
+rules:
+  # =============================================================================
+  # Style Rules - Keep configurations consistent and maintainable
+  # =============================================================================
+
+  # Volumes should not have quotes (auto-fixable)
+  no-quotes-in-volumes: 2
+
+  # Sort service dependencies alphabetically (auto-fixable)
+  service-dependencies-alphabetical-order: 1
+
+  # Enforce consistent key ordering within services (auto-fixable)
+  # Using warning level to allow gradual adoption
+  service-keys-order: 1
+
+  # Sort ports alphabetically within services (auto-fixable)
+  service-ports-alphabetical-order: 1
+
+  # Sort services alphabetically (auto-fixable)
+  # Using warning level - existing files may not be sorted
+  services-alphabetical-order: 1
+
+  # Enforce top-level property order (auto-fixable)
+  top-level-properties-order: 1
+
+  # =============================================================================
+  # Security Rules - Prevent vulnerabilities and conflicts
+  # =============================================================================
+
+  # Container names must be unique across all compose files
+  no-duplicate-container-names: 2
+
+  # Exported ports must be unique to avoid conflicts
+  no-duplicate-exported-ports: 2
+
+  # Warn about unbound port interfaces (0.0.0.0 exposure)
+  # Using warning level as many services intentionally expose to all interfaces
+  no-unbound-port-interfaces: 1
+
+  # Container names must follow Docker naming conventions
+  service-container-name-regex: 2
+
+  # Require explicit image tags instead of 'latest' or 'stable'
+  # This is critical for reproducible deployments
+  # Exception: Redis uses latest per AGENTS.md guidelines
+  service-image-require-explicit-tag: 2
+
+  # =============================================================================
+  # Best Practice Rules - Reliable and maintainable configurations
+  # =============================================================================
+
+  # Services should use either 'build' or 'image', not both
+  no-build-and-image: 2
+
+  # DISABLED: version field check
+  # T-SHITS requires version: "3" for all compose files per AGENTS.md
+  # The linter recommends removing it, but we keep it for compatibility
+  no-version-field: 0
+
+  # Warn if project 'name' field is missing
+  # Using warning level as this is optional enhancement
+  require-project-name-field: 1
+
+  # Ports should be quoted to prevent YAML parsing issues
+  # Especially important for ports like 22:22 which could be parsed as base-60
+  require-quotes-in-ports:
+    - 2
+    - quoteType: "double"
