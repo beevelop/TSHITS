@@ -487,17 +487,17 @@ jobs:
             # Set test-specific environment variables
             export SERVICE_DOMAIN="${SERVICE}.test.local"
             
-            # Step 1: Pull images (with timeout)
+            # Step 1: Pull images (with timeout, quiet mode to reduce log noise)
             echo "--- Pulling images ---"
-            if timeout 300 docker compose -f "$COMPOSE_FILE" pull 2>&1; then
+            if timeout 300 docker compose -f "$COMPOSE_FILE" pull --quiet 2>&1; then
               echo "Images pulled successfully"
             else
               echo "WARNING: Some images may have failed to pull"
             fi
             
-            # Step 2: Start services (with timeout)
+            # Step 2: Start services (with timeout, quiet mode)
             echo "--- Starting services ---"
-            if timeout 120 docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+            if timeout 120 docker compose -f "$COMPOSE_FILE" up -d --quiet-pull 2>&1; then
               echo "Services started"
               
               # Step 3: Wait for services to be running

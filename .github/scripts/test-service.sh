@@ -218,17 +218,17 @@ test_service() {
     # Ensure traefik network exists
     docker network create traefik_default 2>/dev/null || true
     
-    # Step 1: Pull images
+    # Step 1: Pull images (quiet mode to reduce log noise)
     log_step "Pulling images..."
-    if timeout "$PULL_TIMEOUT" docker compose -f "$compose_file" pull 2>&1; then
+    if timeout "$PULL_TIMEOUT" docker compose -f "$compose_file" pull --quiet 2>&1; then
         log_info "Images pulled successfully"
     else
         log_warn "Some images may have failed to pull"
     fi
     
-    # Step 2: Start services
+    # Step 2: Start services (quiet-pull to suppress download progress)
     log_step "Starting services..."
-    if timeout "$START_TIMEOUT" docker compose -f "$compose_file" up -d 2>&1; then
+    if timeout "$START_TIMEOUT" docker compose -f "$compose_file" up -d --quiet-pull 2>&1; then
         log_info "Services started"
         
         # Wait for initial startup
