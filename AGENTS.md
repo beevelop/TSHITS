@@ -20,8 +20,7 @@ AI agent operating manual for BeeCompose. **Read completely before any action.**
 ## Do
 
 - Follow existing docker-compose patterns exactly
-- Use `version: "3"` for all compose files (optional but kept for compatibility)
-- Use `name: <service>` to explicitly set the project name
+- Use `name: <service>` to explicitly set the project name (do NOT use `version` - it is obsolete)
 - Include `restart: unless-stopped` on all containers
 - Add JSON logging limits to every service:
   ```yaml
@@ -210,7 +209,6 @@ envsubst < traefik.yml.tpl > traefik.yml
 Service keys must follow DCLint's expected order:
 
 ```yaml
-version: "3"
 name: <service>
 services:
   <service>:

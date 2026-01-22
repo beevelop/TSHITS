@@ -1,4 +1,3 @@
-version: "3"
 name: whoami
 services:
   whoami1:

@@ -1,4 +1,3 @@
-version: "3"
 name: statping
 services:
   postgres_statping:

@@ -1,4 +1,3 @@
-version: "3"
 name: graylog
 services:
   elasticsearch:

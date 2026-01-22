@@ -1,4 +1,3 @@
-version: "3"
 name: traefik
 # Traefik v3 reverse proxy with Let's Encrypt (CloudFlare DNS-01)
 services:
