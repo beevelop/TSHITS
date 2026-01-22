@@ -3,6 +3,16 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.1](https://github.com/beevelop/BeeCompose/compare/v26.1.0...v26.1.1) (2026-01-22)
+
+### CI/CD
+
+* bump actions/checkout from 4 to 6 ([#5](https://github.com/beevelop/BeeCompose/issues/5)) ([13581bf](https://github.com/beevelop/BeeCompose/commit/13581bf3547932483bb3744a4ff32b7c96796c24))
+* bump actions/download-artifact from 4 to 7 ([#6](https://github.com/beevelop/BeeCompose/issues/6)) ([094cabc](https://github.com/beevelop/BeeCompose/commit/094cabcdd138ab25990d3aa76845506d3d6d6fe9))
+* bump actions/upload-artifact from 4 to 6 ([#3](https://github.com/beevelop/BeeCompose/issues/3)) ([7c00ab2](https://github.com/beevelop/BeeCompose/commit/7c00ab236678f6f98d06c448278a5ddb350517a1))
+* bump peter-evans/create-pull-request from 6 to 8 ([#2](https://github.com/beevelop/BeeCompose/issues/2)) ([a6f96e3](https://github.com/beevelop/BeeCompose/commit/a6f96e3b72261f1035a1cf3eaf069dafc4f4c4b7))
+* **ci-cd:** enhance bind mount detection and OCI compatibility validation ([b995e23](https://github.com/beevelop/BeeCompose/commit/b995e231f29045bb58fb04a4795f079ab6e61b93))
+
 ## 26.1.0 (2026-01-22)
 
 ### Features
