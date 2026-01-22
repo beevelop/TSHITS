@@ -15,12 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=sentry
 SERVICE_DOMAIN=sentry.example.com
-SENTRY_VERSION=24.12.0
-POSTGRES_TAG=17-alpine
-REDIS_TAG=7-alpine
-MEMCACHED_TAG=1.6
-DB_NAME=sentry
-DB_USER=sentry
 DB_PASS=Swordfish
 EOF
 
@@ -49,6 +43,18 @@ docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env ps
 - Traefik reverse proxy (see [traefik](../traefik/))
 - Minimum 4GB RAM recommended
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | sentry-postgres | Primary database |
+| Redis | sentry-redis | Cache and message broker |
+| Memcached | sentry-memcached | Session caching |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |
@@ -67,8 +73,6 @@ docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env ps
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SERVICE_DOMAIN` | Domain for Sentry | `sentry.example.com` |
-| `DB_NAME` | PostgreSQL database name | `sentry` |
-| `DB_USER` | PostgreSQL username | `sentry` |
 | `DB_PASS` | PostgreSQL password | `Swordfish` |
 
 ### Required (sentry.env)
@@ -80,7 +84,7 @@ docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env ps
 | `SENTRY_REDIS_HOST` | Redis hostname | `redis` |
 | `SENTRY_POSTGRES_HOST` | PostgreSQL hostname | `postgres` |
 
-### Optional
+### Optional (.env)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -89,6 +93,8 @@ docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env ps
 | `POSTGRES_TAG` | PostgreSQL image tag | `17-alpine` |
 | `REDIS_TAG` | Redis image tag | `7-alpine` |
 | `MEMCACHED_TAG` | Memcached image tag | `1.6` |
+| `DB_NAME` | PostgreSQL database name | `sentry` |
+| `DB_USER` | PostgreSQL username | `sentry` |
 
 ## Volumes
 

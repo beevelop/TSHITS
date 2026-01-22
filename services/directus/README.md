@@ -17,8 +17,6 @@ COMPOSE_PROJECT_NAME=directus
 SERVICE_DOMAIN=directus.example.com
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=Swordfish
-DB_USER=directus
-DB_NAME=directus
 DB_PASS=Swordfish
 DB_ROOT_PASS=Swordfish
 EOF
@@ -35,6 +33,16 @@ docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env ps
 - Docker 25.0+ (required for OCI artifact support)
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| MySQL | directus-mysql | Data storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 

@@ -15,10 +15,7 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=huginn
 SERVICE_DOMAIN=huginn.example.com
-DB_USER=huginn
-DB_NAME=huginn
 DB_PASS=Swordfish
-INVITATION_CODE=Swordfish
 EOF
 
 # 2. Deploy from GHCR
@@ -33,6 +30,16 @@ docker compose -f oci://ghcr.io/beevelop/huginn:latest --env-file .env ps
 - Docker 25.0+ (required for OCI artifact support)
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | huginn-postgres | Agent data storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 

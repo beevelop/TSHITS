@@ -49,6 +49,17 @@ docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env ps
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | cabot-postgres | Primary database |
+| RabbitMQ | cabot-rabbitmq | Celery message broker |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |

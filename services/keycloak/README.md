@@ -15,8 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=keycloak
 SERVICE_DOMAIN=keycloak.example.com
-POSTGRES_DB=keycloak
-POSTGRES_USER=keycloak
 POSTGRES_PASS=Swordfish
 KEYCLOAK_USER=admin
 KEYCLOAK_PASSWORD=Swordfish
@@ -35,6 +33,16 @@ docker compose -f oci://ghcr.io/beevelop/keycloak:latest --env-file .env ps
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | keycloak-postgres | Identity data storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |
@@ -49,7 +57,6 @@ docker compose -f oci://ghcr.io/beevelop/keycloak:latest --env-file .env ps
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SERVICE_DOMAIN` | Domain for Keycloak access | `keycloak.example.com` |
-| `POSTGRES_USER` | PostgreSQL username | `keycloak` |
 | `POSTGRES_PASS` | PostgreSQL password | `Swordfish` |
 | `KEYCLOAK_USER` | Keycloak admin username | `admin` |
 | `KEYCLOAK_PASSWORD` | Keycloak admin password | `Swordfish` |
@@ -60,6 +67,7 @@ docker compose -f oci://ghcr.io/beevelop/keycloak:latest --env-file .env ps
 |----------|-------------|---------|
 | `COMPOSE_PROJECT_NAME` | Docker Compose project name | `keycloak` |
 | `POSTGRES_DB` | PostgreSQL database name | `keycloak` |
+| `POSTGRES_USER` | PostgreSQL username | `keycloak` |
 | `KEYCLOAK_VERSION` | Keycloak image tag | `26.2` |
 | `POSTGRES_VERSION` | PostgreSQL image tag | `17` |
 

@@ -15,16 +15,11 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=gitlab
 SERVICE_DOMAIN=gitlab.example.com
-TZ=Europe/Berlin
-GITLAB_TIMEZONE=Berlin
-DB_NAME=gitlab
-DB_USER=gitlab
 DB_PASS=Swordfish
 GITLAB_ROOT_PASSWORD=Swordfish
 GITLAB_SECRETS_DB_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
 GITLAB_SECRETS_SECRET_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
 GITLAB_SECRETS_OTP_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
-GIT_PORT=2222
 EOF
 
 # 2. Deploy from GHCR
@@ -40,6 +35,17 @@ docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env ps
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
 - Minimum 4GB RAM recommended
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | gitlab-postgres | Primary database (sameersbn/postgresql) |
+| Redis | gitlab-redis | Cache and session store |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 

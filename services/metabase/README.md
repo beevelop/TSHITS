@@ -15,8 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=metabase
 SERVICE_DOMAIN=metabase.example.com
-DB_USER=metabase
-DB_NAME=metabase
 DB_PASS=Swordfish
 EOF
 
@@ -33,6 +31,16 @@ docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env ps
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | metabase-postgres | Metabase metadata storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |
@@ -47,7 +55,6 @@ docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env ps
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SERVICE_DOMAIN` | Domain for Metabase access | `metabase.example.com` |
-| `DB_USER` | PostgreSQL username | `metabase` |
 | `DB_PASS` | PostgreSQL password | `Swordfish` |
 
 ### Optional
@@ -55,9 +62,10 @@ docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env ps
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `COMPOSE_PROJECT_NAME` | Docker Compose project name | `metabase` |
+| `DB_USER` | PostgreSQL username | `metabase` |
 | `DB_NAME` | PostgreSQL database name | `metabase` |
-| `METABASE_VERSION` | Metabase image tag | `v0.58.2` |
-| `POSTGRES_TAG` | PostgreSQL image tag | `17-alpine` |
+| `METABASE_VERSION` | Metabase image tag | `latest` |
+| `POSTGRES_TAG` | PostgreSQL image tag | `15-alpine` |
 
 ## Volumes
 

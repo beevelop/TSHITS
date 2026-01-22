@@ -15,10 +15,8 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=zabbix
 SERVICE_DOMAIN=zabbix.example.com
-DB_USER=zabbix
 DB_PASS=Swordfish
 DB_ROOT_PASS=Swordfish
-PHP_TZ=Europe/Berlin
 EOF
 
 # 2. Deploy from GHCR
@@ -33,6 +31,16 @@ docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env ps
 - Docker 25.0+ (required for OCI artifact support)
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| MariaDB | zabbix-mariadb | Primary database |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 

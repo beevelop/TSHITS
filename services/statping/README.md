@@ -15,8 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=statping
 SERVICE_DOMAIN=status.example.com
-DB_NAME=statping
-DB_USER=statping
 DB_PASS=Swordfish
 EOF
 
@@ -32,6 +30,16 @@ docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env ps
 - Docker 25.0+ (required for OCI artifact support)
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | statping-postgres | Status and metrics storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 

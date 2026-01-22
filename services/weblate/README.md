@@ -49,6 +49,18 @@ docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env ps
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | weblate-postgres | Primary database |
+| Redis | weblate-redis | Caching and task queue |
+| Memcached | weblate-memcached | Session caching |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |

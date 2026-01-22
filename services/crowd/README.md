@@ -15,9 +15,7 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=crowd
 SERVICE_DOMAIN=crowd.example.com
-POSTGRES_USER=crowd
 POSTGRES_PASS=Swordfish
-POSTGRES_DB=crowd
 EOF
 
 # 2. Deploy from GHCR
@@ -34,6 +32,16 @@ docker compose -f oci://ghcr.io/beevelop/crowd:latest --env-file .env ps
 - Traefik reverse proxy (see [traefik](../traefik/))
 - Atlassian Crowd license (commercial or evaluation)
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | crowd-postgres | Identity data storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |
@@ -48,7 +56,6 @@ docker compose -f oci://ghcr.io/beevelop/crowd:latest --env-file .env ps
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SERVICE_DOMAIN` | Domain for Crowd access | `crowd.example.com` |
-| `POSTGRES_USER` | PostgreSQL username | `crowd` |
 | `POSTGRES_PASS` | PostgreSQL password | `Swordfish` |
 
 ### Optional
@@ -56,6 +63,7 @@ docker compose -f oci://ghcr.io/beevelop/crowd:latest --env-file .env ps
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `COMPOSE_PROJECT_NAME` | Docker Compose project name | `crowd` |
+| `POSTGRES_USER` | PostgreSQL username | `crowd` |
 | `POSTGRES_DB` | PostgreSQL database name | `crowd` |
 
 ### Proxy Settings (Automatic)

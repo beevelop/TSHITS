@@ -15,11 +15,7 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=jira
 SERVICE_DOMAIN=jira.example.com
-POSTGRES_USER=jira
 POSTGRES_PASS=Swordfish
-POSTGRES_DB=jira
-JVM_MINIMUM_MEMORY=512m
-JVM_MAXIMUM_MEMORY=2g
 EOF
 
 # 2. Deploy from GHCR
@@ -36,6 +32,16 @@ docker compose -f oci://ghcr.io/beevelop/jira:latest --env-file .env ps
 - Traefik reverse proxy (see [traefik](../traefik/))
 - Minimum 4GB RAM recommended for Jira
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | jira-postgres | Issue tracking data storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |
@@ -50,7 +56,6 @@ docker compose -f oci://ghcr.io/beevelop/jira:latest --env-file .env ps
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SERVICE_DOMAIN` | Domain for Jira access | `jira.example.com` |
-| `POSTGRES_USER` | PostgreSQL username | `jira` |
 | `POSTGRES_PASS` | PostgreSQL password | `Swordfish` |
 
 ### Optional
@@ -58,6 +63,7 @@ docker compose -f oci://ghcr.io/beevelop/jira:latest --env-file .env ps
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `COMPOSE_PROJECT_NAME` | Docker Compose project name | `jira` |
+| `POSTGRES_USER` | PostgreSQL username | `jira` |
 | `POSTGRES_DB` | PostgreSQL database name | `jira` |
 | `JVM_MINIMUM_MEMORY` | JVM minimum heap size | `1024m` |
 | `JVM_MAXIMUM_MEMORY` | JVM maximum heap size | `2048m` |

@@ -15,8 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=monica
 SERVICE_DOMAIN=monica.example.com
-DB_NAME=monica
-DB_USER=monica
 DB_PASS=Swordfish
 DB_ROOT_PASS=Swordfish
 EOF
@@ -59,6 +57,16 @@ docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env ps
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| MySQL | monica-mysql | Relationship data storage |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |
@@ -73,7 +81,6 @@ docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env ps
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SERVICE_DOMAIN` | Domain for Monica access | `monica.example.com` |
-| `DB_USER` | MySQL username | `monica` |
 | `DB_PASS` | MySQL password | `Swordfish` |
 | `DB_ROOT_PASS` | MySQL root password | `Swordfish` |
 
@@ -82,6 +89,7 @@ docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env ps
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `COMPOSE_PROJECT_NAME` | Docker Compose project name | `monica` |
+| `DB_USER` | MySQL username | `monica` |
 | `DB_NAME` | MySQL database name | `monica` |
 | `MONICA_VERSION` | Monica image tag | `5.0.0-beta.5-apache` |
 | `MYSQL_TAG` | MySQL image tag | `8.0` |

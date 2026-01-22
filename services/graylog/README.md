@@ -37,6 +37,19 @@ docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env ps
 - Traefik reverse proxy (see [traefik](../traefik/))
 - Minimum 4GB RAM recommended (Elasticsearch requires significant memory)
 
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| MongoDB | graylog-mongodb | Configuration and metadata storage |
+| Elasticsearch | graylog-elasticsearch | Search and indexing engine |
+
+**Note:** Elasticsearch requires `vm.max_map_count=262144`. See Troubleshooting section.
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
+
 ## Architecture
 
 | Container | Image | Purpose |

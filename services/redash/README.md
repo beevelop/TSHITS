@@ -15,10 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=redash
 SERVICE_DOMAIN=redash.example.com
-REDASH_VERSION=25.1.0
-REDASH_NGINX_VERSION=latest
-REDIS_TAG=7-alpine
-POSTGRES_TAG=17-alpine
 REDASH_COOKIE_SECRET=Swordfish32chars0000000000000000
 EOF
 
@@ -37,6 +33,18 @@ docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env ps
 - Docker 25.0+ (required for OCI artifact support)
 - Docker Compose v2.24+
 - Traefik reverse proxy (see [traefik](../traefik/))
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | redash-postgres | Primary database |
+| Redis | redash-redis | Cache and task queue |
+| Nginx | redash-nginx | Reverse proxy |
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 

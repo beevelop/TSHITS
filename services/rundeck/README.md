@@ -15,7 +15,6 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=rundeck
 SERVICE_DOMAIN=rundeck.example.com
-RUNDECK_VERSION=5.18.0
 RUNDECK_ADMIN_PASSWORD=Swordfish
 EOF
 

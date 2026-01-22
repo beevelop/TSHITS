@@ -19,8 +19,6 @@ sudo sysctl -w fs.file-max=131072
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=sonarqube
 SERVICE_DOMAIN=sonarqube.example.com
-SONARQUBE_VERSION=10-community
-POSTGRES_TAG=17-alpine
 EOF
 
 # 3. Deploy from GHCR
@@ -42,6 +40,18 @@ docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env ps
   vm.max_map_count=524288
   fs.file-max=131072
   ```
+
+## Dependencies
+
+This service includes all required backing stores:
+
+| Dependency | Container | Purpose |
+|------------|-----------|---------|
+| PostgreSQL | sonarqube-db | Analysis data storage |
+
+**Note:** Database uses hardcoded credentials (`sonar`/`sonar`) for simplicity.
+
+See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Architecture
 
