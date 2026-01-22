@@ -3,6 +3,16 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.2](https://github.com/beevelop/BeeCompose/compare/v26.1.1...v26.1.2) (2026-01-22)
+
+### Documentation
+
+* add README files for new services with deployment instructions and configurations ([2db6402](https://github.com/beevelop/BeeCompose/commit/2db64025f07be69527ecd755c6d77c0c549b95fc))
+
+### Maintenance
+
+* **services:** update docker-compose files to set default environment variables and improve service domain handling ([ba8b3b9](https://github.com/beevelop/BeeCompose/commit/ba8b3b96ea93a2cf13e6debadc1d0f51f8dd94f5))
+
 ## [26.1.1](https://github.com/beevelop/BeeCompose/compare/v26.1.0...v26.1.1) (2026-01-22)
 
 ### CI/CD
