@@ -237,12 +237,13 @@ jobs:
           echo "=== Publishing ${IMAGE}:${VERSION} ==="
           
           # Publish versioned tag
-          docker compose publish "${IMAGE}:${VERSION}"
+          # --with-env includes environment variables with defaults in the OCI artifact
+          docker compose publish --with-env "${IMAGE}:${VERSION}"
           echo "✓ Published ${IMAGE}:${VERSION}"
           
           # Publish latest tag (only on main branch or release)
           if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "release" ]]; then
-            docker compose publish "${IMAGE}:latest"
+            docker compose publish --with-env "${IMAGE}:latest"
             echo "✓ Published ${IMAGE}:latest"
           fi
 
