@@ -97,8 +97,8 @@ services:
 networks:
   zabbix:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   mariadb_data:
