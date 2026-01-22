@@ -6,12 +6,14 @@ This document describes the GitHub Actions CI/CD pipeline for BeeCompose, includ
 
 1. [Overview](#overview)
 2. [Pipeline Architecture](#pipeline-architecture)
-3. [Adding New Services](#adding-new-services)
-4. [Interpreting Results](#interpreting-results)
-5. [CVE Scanning Policy](#cve-scanning-policy)
-6. [Troubleshooting](#troubleshooting)
-7. [Manual Workflow Triggers](#manual-workflow-triggers)
-8. [Performance Considerations](#performance-considerations)
+3. [OCI Publishing](#oci-publishing)
+4. [Automated Updates](#automated-updates)
+5. [Adding New Services](#adding-new-services)
+6. [Interpreting Results](#interpreting-results)
+7. [CVE Scanning Policy](#cve-scanning-policy)
+8. [Troubleshooting](#troubleshooting)
+9. [Manual Workflow Triggers](#manual-workflow-triggers)
+10. [Performance Considerations](#performance-considerations)
 
 ---
 
@@ -21,7 +23,9 @@ The CI/CD pipeline automatically validates all Docker Compose configurations and
 
 ### Key Features
 
-- **Sequential Testing**: All 30+ services are tested one after another to prevent resource conflicts
+- **OCI Publishing**: Compose files are published as OCI artifacts to GitHub Container Registry
+- **OCI Validation**: Ensures all services are OCI-compatible (no bind mounts, no build directives)
+- **Sequential Testing**: All 30 services are tested one after another to prevent resource conflicts
 - **Aggressive Cleanup**: Docker images and volumes are removed between tests to prevent disk exhaustion
 - **CVE Scanning**: All unique Docker images are scanned using Trivy for known vulnerabilities
 - **Clear Reporting**: Detailed summaries and artifacts for debugging failures
@@ -37,9 +41,31 @@ The pipeline runs on:
 
 ## Pipeline Architecture
 
-### Jobs Overview
+### Workflows
+
+BeeCompose uses multiple GitHub Actions workflows:
+
+| Workflow | File | Purpose | Trigger |
+|----------|------|---------|---------|
+| CI/CD Pipeline | `ci-cd.yml` | Lint, validate, scan, test | Push, PR |
+| Publish OCI | `publish-oci.yml` | Publish OCI artifacts to GHCR | Push to main, release |
+| Check Versions | `check-versions.yml` | Check upstream for new releases | Weekly, manual |
+
+Additionally, **Dependabot** is configured via `.github/dependabot.yml` to monitor base images.
+
+### Jobs Overview (CI/CD Pipeline)
 
 ```
+┌─────────────────┐
+│      lint       │  Validate compose files with DCLint
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  validate-oci   │  Check OCI compatibility (no bind mounts, no build)
+└────────┬────────┘
+         │
+         ▼
 ┌─────────────────┐
 │    discover     │  Discover all services and validate compose syntax
 └────────┬────────┘
@@ -67,24 +93,36 @@ The pipeline runs on:
 
 ### Job Details
 
-#### 1. Discover Services
+#### 1. Lint
+- Validates all docker-compose.yml files with DCLint
+- Checks for style issues, ordering, and best practices
+- Uses `.dclintrc.yaml` configuration
+
+#### 2. Validate OCI
+- Ensures services are OCI-compatible
+- Checks for bind mounts (except docker.sock)
+- Checks for build directives
+- Checks for local config file references
+- **Fails pipeline if OCI blockers found**
+
+#### 3. Discover Services
 - Finds all `docker-compose.yml` files under `services/`
 - Validates YAML syntax using `docker compose config`
 - Outputs list of services for subsequent jobs
 
-#### 2. Extract Images
+#### 4. Extract Images
 - Parses each compose file to extract image references
 - Resolves environment variables from `.env` and `.env.example`
 - Deduplicates images (many services share postgres, redis, etc.)
 
-#### 3. CVE Scan
+#### 5. CVE Scan
 - Installs Trivy vulnerability scanner
 - Scans each unique image once
 - Reports vulnerability counts by severity
-- **Fails pipeline if CRITICAL vulnerabilities found**
+- **Reports findings but does not block pipeline** (informational only)
 - Cleans up images after scanning to save disk space
 
-#### 4. Test Services
+#### 6. Test Services
 - Tests each service sequentially:
   1. Load environment variables
   2. Pull images
@@ -95,9 +133,173 @@ The pipeline runs on:
   7. **Aggressive cleanup**: remove containers, volumes, AND images
 - Reports pass/fail for each service
 
-#### 5. Summary
+#### 7. Summary
 - Generates GitHub Step Summary with overall results
 - Reports metrics (services tested, images scanned, CVE counts)
+
+---
+
+## OCI Publishing
+
+BeeCompose services are published as OCI artifacts to GitHub Container Registry (GHCR), enabling one-command deployments without cloning the repository.
+
+### How Publishing Works
+
+The `publish-oci.yml` workflow:
+
+1. **Triggers** on push to main, manual dispatch, or releases
+2. **Detects** which services changed (or publishes all on release)
+3. **Extracts** version from the service's `.env` file
+4. **Validates** compose syntax and OCI compatibility
+5. **Publishes** to `ghcr.io/beevelop/<service>:<version>` and `:latest`
+
+### Published Artifacts
+
+All 30 services are published to:
+
+```
+ghcr.io/beevelop/<service>:<version>
+ghcr.io/beevelop/<service>:latest
+```
+
+Examples:
+- `ghcr.io/beevelop/gitlab:v16.0.0`
+- `ghcr.io/beevelop/traefik:v3.3.0`
+- `ghcr.io/beevelop/metabase:latest`
+
+### Versioning
+
+Versions are extracted from each service's `.env` file:
+
+```bash
+# services/gitlab/.env
+GITLAB_VERSION=16.0.0
+
+# Published as: ghcr.io/beevelop/gitlab:v16.0.0
+```
+
+**Normalization rules:**
+- Version starting with a number gets `v` prefix: `16.0.0` → `v16.0.0`
+- Version already prefixed is kept as-is: `v3.3.0` → `v3.3.0`
+- Always publishes `:latest` tag alongside versioned tag
+
+### Manual Publishing
+
+Trigger a manual publish from GitHub Actions:
+
+1. Go to **Actions** > **Publish OCI Artifacts**
+2. Click **Run workflow**
+3. Optionally specify:
+   - `service`: Specific service to publish (empty = changed only)
+   - `version_override`: Override the version tag
+
+### Using Published Artifacts
+
+Deploy any service directly from GHCR:
+
+```bash
+# Create environment file
+cat > gitlab.env << 'EOF'
+COMPOSE_PROJECT_NAME=gitlab
+SERVICE_DOMAIN=gitlab.example.com
+DB_PASS=secure-password
+EOF
+
+# Deploy from OCI
+docker compose \
+  -f oci://ghcr.io/beevelop/gitlab:latest \
+  --env-file gitlab.env \
+  up -d
+```
+
+### OCI Compatibility Requirements
+
+For a service to be OCI-publishable:
+
+| Requirement | Description |
+|-------------|-------------|
+| Named volumes | No `./data/` bind mounts (except docker.sock) |
+| No build | Must use pre-built images only |
+| No local configs | Config files must be generated or inlined |
+| Valid compose | `docker compose config` must succeed |
+
+The `validate-oci` job in CI enforces these requirements.
+
+### Multi-Architecture Support
+
+OCI artifacts published by BeeCompose are **architecture-agnostic**. The compose files reference base images (Traefik, PostgreSQL, Redis, etc.) that are already multi-architecture on Docker Hub and other registries.
+
+When deploying, Docker automatically selects the correct architecture variant:
+
+```bash
+# Works on both amd64 and arm64
+docker compose -f oci://ghcr.io/beevelop/metabase:latest up -d
+```
+
+**Supported architectures** (depends on base image):
+- `linux/amd64` (x86_64)
+- `linux/arm64` (aarch64, Apple Silicon, AWS Graviton)
+
+---
+
+## Automated Updates
+
+BeeCompose includes automated systems to keep services up-to-date with upstream releases.
+
+### Dependabot
+
+Dependabot monitors Docker Compose files for base image updates and creates PRs automatically.
+
+**Configuration:** `.github/dependabot.yml`
+
+**How it works:**
+1. Checks each service's `docker-compose.yml` weekly
+2. Detects when new versions of base images are available
+3. Creates a PR to update the image tag
+4. PRs are labeled by category (devops, security, monitoring, etc.)
+
+**Schedule:**
+| Day | Categories |
+|-----|------------|
+| Monday | GitHub Actions |
+| Tuesday | Infrastructure, Atlassian |
+| Wednesday | DevOps tools |
+| Thursday | Monitoring |
+| Friday | Security |
+| Saturday | Analytics, Productivity |
+| Sunday | Storage, Databases, Misc |
+
+### Upstream Version Checker
+
+A custom workflow checks upstream registries for new stable releases and creates PRs.
+
+**Workflow:** `.github/workflows/check-versions.yml`
+
+**How it works:**
+1. Runs weekly (Sundays at 05:00 UTC) or on manual trigger
+2. For each service, queries Docker Hub/Quay for latest stable tag
+3. Compares with current version in `.env`
+4. Creates a PR if a newer stable version is available
+
+**Filters applied:**
+- Excludes pre-release tags (`-alpha`, `-beta`, `-rc`, `-dev`)
+- Excludes non-semantic versions (`latest`, `nightly`, `edge`)
+- Uses semantic version sorting to find the highest stable release
+
+**Manual trigger:**
+1. Go to **Actions** > **Check Upstream Versions**
+2. Click **Run workflow**
+3. Optionally specify a single service
+4. Set `dry_run` to check without creating PRs
+
+### Update Workflow
+
+When either system creates a PR:
+
+1. **Review** the PR and check upstream changelog for breaking changes
+2. **CI runs** automatically to validate the update
+3. **Merge** when satisfied
+4. **OCI artifacts** are automatically published with the new version
 
 ---
 
@@ -112,8 +314,7 @@ When adding a new service to BeeCompose, ensure it works with the CI/CD pipeline
    services/<service-name>/
    ├── docker-compose.yml    # Required
    ├── .env                  # Required (image versions)
-   ├── .env.example          # Recommended (example config)
-   └── bee                   # Optional (service script)
+   └── .env.example          # Recommended (example config)
    ```
 
 2. **Environment Variables**
@@ -121,19 +322,38 @@ When adding a new service to BeeCompose, ensure it works with the CI/CD pipeline
    - Define version tags in `.env` (committed)
    - Provide example values in `.env.example` (committed)
 
-3. **Compose File Standards**
+3. **OCI Compatibility**
+   - Use named volumes (not bind mounts like `./data/`)
+   - Exception: `/var/run/docker.sock` bind mount is allowed
+   - Do not use `build:` directive - use pre-built images only
+   - Include native Docker healthcheck directives
+
+4. **Compose File Standards**
    ```yaml
    version: "3"
+   name: myservice
    services:
      myservice:
        image: myimage:${MYSERVICE_VERSION}
+       container_name: myservice
+       volumes:
+         - app_data:/app/data
        restart: unless-stopped
+       healthcheck:
+         test: ["CMD", "curl", "-f", "http://localhost/health"]
+         interval: 30s
+         timeout: 10s
+         retries: 3
+         start_period: 30s
        logging:
          driver: "json-file"
          options:
            max-size: "500k"
            max-file: "50"
-       # ... other config
+   
+   volumes:
+     app_data:
+       name: ${COMPOSE_PROJECT_NAME:-myservice}_app_data
    
    networks:
      traefik:
@@ -150,12 +370,22 @@ Before pushing, validate your compose file:
 cd services/<service-name>
 docker compose config
 
-# Test with the helper script
-./.github/scripts/test-service.sh <service-name>
+# Run DCLint
+docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<service-name> -c /app/.dclintrc.yaml
+
+# Check OCI compatibility (no bind mounts except docker.sock)
+docker compose config | grep -E 'type: bind' | grep -v docker.sock
+# Should output nothing
+
+# Test locally
+docker compose --env-file .env.example up -d
+docker compose ps  # Verify (healthy) status
+docker compose down
 ```
 
 ### Pipeline Considerations
 
+- **OCI Validation**: Services with bind mounts will fail the `validate-oci` job
 - **Health Checks**: The pipeline verifies containers start and don't enter restart loops
 - **Resource Usage**: Large images may take longer to pull; adjust expectations
 - **External Dependencies**: Services that require external APIs may not fully function in CI
@@ -184,8 +414,7 @@ The summary includes a table like:
 | `redis:latest` | 0 | 0 | 1 | 3 | PASS |
 | `myapp:1.0` | 1 | 0 | 0 | 0 | CRITICAL |
 
-- **CRITICAL**: Blocks pipeline (must fix before merging)
-- **HIGH**: Warning (consider updating)
+- **CRITICAL/HIGH**: Warning shown in summary
 - **PASS**: No high-severity issues
 
 ### Test Results
@@ -209,20 +438,22 @@ For failed tests, check:
 
 | Severity | Action |
 |----------|--------|
-| CRITICAL | **Block** pipeline (must fix) |
+| CRITICAL | **Warning** - reported in scan results, does not block |
 | HIGH | Warning only (logged in report) |
 | MEDIUM | Informational |
 | LOW | Informational |
 
+> **Note:** CVE scanning is currently configured as informational only. This allows tracking vulnerabilities without blocking deployments for upstream issues beyond our control.
+
 ### Enabling Stricter Policy
 
-To fail on HIGH vulnerabilities, use manual workflow dispatch:
+To make CVE scanning blocking, modify the workflow file:
 
-1. Go to **Actions** > **CI/CD Pipeline**
-2. Click **Run workflow**
-3. Set `fail_on_high` to `true`
+1. Open `.github/workflows/ci-cd.yml`
+2. Set `CVE_FAIL_ON_CRITICAL: true` and/or `CVE_FAIL_ON_HIGH: true`
+3. Update the `cve-scan` job to fail when thresholds are exceeded
 
-Or request a team decision to change the default in the workflow file.
+Or use manual workflow dispatch with `fail_on_high` set to `true` for one-time strict scanning.
 
 ### Handling False Positives
 
@@ -339,6 +570,21 @@ The pipeline supports manual triggering with options:
 ---
 
 ## Performance Considerations
+
+### Concurrency Controls
+
+All workflows include concurrency controls to prevent resource conflicts and redundant runs:
+
+| Workflow | Concurrency Group | Behavior |
+|----------|------------------|----------|
+| CI/CD Pipeline | `ci-cd-${{ github.ref }}` | Cancels in-progress runs on same branch |
+| Publish OCI | `publish-oci-${{ github.ref }}` | Waits for previous run to complete |
+| Check Versions | `check-versions` | Cancels in-progress runs |
+
+**Why different behaviors?**
+- **CI/CD**: Cancel-in-progress for faster feedback on new commits
+- **Publish OCI**: Wait (no cancel) to ensure all artifacts are published
+- **Check Versions**: Cancel-in-progress since only latest check matters
 
 ### Expected Durations
 
