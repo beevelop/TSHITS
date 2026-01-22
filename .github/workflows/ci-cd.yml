@@ -1,18 +1,19 @@
 # BeeCompose CI/CD Pipeline
-# Docker Compose Testing with Parallel CVE Scanning
+# Docker Compose Testing with Parallel CVE Scanning and Service Testing
 #
 # This workflow validates all Docker Compose configurations and scans images for vulnerabilities.
-# CVE scanning runs in parallel (matrix strategy) for faster pipeline execution.
-# Service testing runs sequentially to prevent resource conflicts.
+# Both CVE scanning and service testing run in parallel (matrix strategy) for faster pipeline execution.
 #
 # Pipeline stages:
 # 1. Lint - Docker Compose linting with DCLint (syntax + best practices)
-# 2. Discover - Find all services and validate basic syntax
-# 3. Extract Images - Collect Docker images for CVE scanning
-# 4. CVE Scan - Security vulnerability scanning with Trivy (parallel per image)
-# 5. CVE Summary - Aggregate scan results
-# 6. Test Services - Sequential Docker Compose testing
-# 7. Summary - Final pipeline results
+# 2. Validate OCI - Check OCI compatibility for artifact publishing
+# 3. Discover - Find all services and validate basic syntax
+# 4. Extract Images - Collect Docker images for CVE scanning
+# 5. CVE Scan - Security vulnerability scanning with Trivy (parallel per image)
+# 6. CVE Summary - Aggregate scan results
+# 7. Test Services - Parallel Docker Compose testing (max 8 concurrent)
+# 8. Test Summary - Aggregate test results
+# 9. Summary - Final pipeline results
 
 name: CI/CD Pipeline
 
@@ -750,275 +751,278 @@ jobs:
           cat summary.md >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
-  # Job 6: Sequential Docker Compose Testing
+  # Job 6: Parallel Docker Compose Testing
   # ============================================================================
+  # Services are tested in parallel using matrix strategy for faster pipeline execution.
+  # Each service runs in its own isolated job with unique project naming to prevent conflicts.
   test-services:
-    name: Test Docker Compose Services
+    name: Test - ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: [discover, cve-scan-summary]
     # Run even if CVE scan is skipped, but not if it failed
     if: ${{ always() && needs.discover.result == 'success' && (needs.cve-scan-summary.result == 'success' || needs.cve-scan-summary.result == 'skipped') }}
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        service: ${{ fromJson(needs.discover.outputs.services) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup test environment
-        run: |
-          set -euo pipefail
-          
-          echo "=== Setting up test environment ==="
-          
-          # Note: traefik_default network is created by traefik service or on-demand
-          # Do NOT pre-create it here as it causes label conflicts with traefik's compose
-          
-          # Log initial disk space
-          echo ""
-          echo "=== Initial disk space ==="
-          df -h /
-          
-          # Log Docker info
-          echo ""
-          echo "=== Docker info ==="
-          docker info | grep -E "(Server Version|Storage Driver|Total Memory)"
-
-      - name: Make scripts executable
-        run: |
-          chmod +x .github/scripts/*.sh 2>/dev/null || true
-
-      - name: Sequential service testing
+      - name: Test service
         id: test
         run: |
           set -uo pipefail
           
-          echo "=== Starting sequential Docker Compose testing ==="
+          SERVICE="${{ matrix.service }}"
+          SERVICE_DIR="services/${SERVICE}"
+          COMPOSE_FILE="${SERVICE_DIR}/docker-compose.yml"
           
-          SERVICES='${{ needs.discover.outputs.services }}'
-          SERVICE_COUNT=${{ needs.discover.outputs.service_count }}
-          TIMEOUT_MINUTES=${{ env.TEST_TIMEOUT_MINUTES }}
+          # Use unique project name to isolate parallel tests
+          PROJECT_NAME="test-${SERVICE}-${{ github.run_id }}"
           
-          # Initialize counters
-          PASSED=0
-          FAILED=0
-          FAILED_SERVICES=""
+          echo "=== Testing: $SERVICE ==="
+          echo "Project: $PROJECT_NAME"
           
           # Create results directory
           mkdir -p test-results
           
-          # Start timing
-          PIPELINE_START=$(date +%s)
+          TEST_START=$(date +%s)
+          TEST_STATUS="PASSED"
+          TEST_DETAILS=""
           
-          # Initialize results file
-          echo "# Docker Compose Test Results" > test-results/summary.md
-          echo "" >> test-results/summary.md
-          echo "| Service | Status | Duration | Details |" >> test-results/summary.md
-          echo "|---------|--------|----------|---------|" >> test-results/summary.md
+          # Load environment variables
+          set +u
+          if [[ -f "${SERVICE_DIR}/.env" ]]; then
+            set -a
+            source "${SERVICE_DIR}/.env" 2>/dev/null || true
+            set +a
+          fi
+          if [[ -f "${SERVICE_DIR}/.env.example" ]]; then
+            set -a
+            source "${SERVICE_DIR}/.env.example" 2>/dev/null || true
+            set +a
+          fi
+          set -u
           
-          SERVICE_INDEX=0
-          for SERVICE in $(echo "$SERVICES" | jq -r '.[]'); do
-            SERVICE_INDEX=$((SERVICE_INDEX + 1))
-            SERVICE_DIR="services/${SERVICE}"
-            COMPOSE_FILE="${SERVICE_DIR}/docker-compose.yml"
+          # Set test-specific environment variables
+          export SERVICE_DOMAIN="${SERVICE}.test.local"
+          
+          # Create isolated traefik network for this test
+          # Using project-specific name to avoid conflicts between parallel tests
+          TRAEFIK_NETWORK="${PROJECT_NAME}_traefik"
+          docker network create "$TRAEFIK_NETWORK" > /dev/null 2>&1 || true
+          
+          # Also create the standard traefik_default network (some services expect it)
+          docker network create traefik_default > /dev/null 2>&1 || true
+          
+          # Step 1: Pull images (quiet mode, suppress progress)
+          echo "Pulling images..."
+          if timeout 300 docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" pull --quiet 2>&1 | grep -v "Pulling\|Pull complete\|Already exists\|Waiting\|Downloading\|Extracting" || true; then
+            echo "Images ready"
+          else
+            echo "WARNING: Some images may have failed to pull"
+          fi
+          
+          # Step 2: Start services (suppress verbose Creating/Started messages)
+          echo "Starting services..."
+          # Capture output and filter out the noisy status messages
+          UP_OUTPUT=$(timeout 120 docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d --quiet-pull 2>&1) || UP_EXIT=$?
+          UP_EXIT=${UP_EXIT:-0}
+          
+          # Only show errors or warnings, not the Creating/Created/Starting/Started noise
+          echo "$UP_OUTPUT" | grep -vE "Creating|Created|Starting|Started|Pulling|Pull complete" | grep -v "^$" || true
+          
+          if [[ $UP_EXIT -eq 0 ]]; then
+            echo "Services started"
             
-            echo ""
-            echo "============================================================"
-            echo "[$SERVICE_INDEX/$SERVICE_COUNT] Testing: $SERVICE"
-            echo "============================================================"
+            # Step 3: Wait for services to stabilize
+            sleep 10
             
-            # Log disk space before test
-            DISK_BEFORE=$(df / | tail -1 | awk '{print $4}')
-            echo "Disk available before: ${DISK_BEFORE}K"
+            # Step 4: Check container health
+            echo "Checking container status..."
+            CONTAINERS=$(docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l)
+            RUNNING=$(docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" ps --status running -q 2>/dev/null | wc -l)
             
-            TEST_START=$(date +%s)
-            TEST_STATUS="PASSED"
-            TEST_DETAILS=""
+            echo "Containers: $RUNNING running of $CONTAINERS defined"
             
-            # Load environment variables
-            # Disable nounset temporarily as env files may contain $ chars in values
-            # (e.g., bcrypt hashes like $2y$10$...)
-            set +u
-            if [[ -f "${SERVICE_DIR}/.env" ]]; then
-              set -a
-              source "${SERVICE_DIR}/.env" 2>/dev/null || true
-              set +a
-            fi
-            if [[ -f "${SERVICE_DIR}/.env.example" ]]; then
-              set -a
-              source "${SERVICE_DIR}/.env.example" 2>/dev/null || true
-              set +a
-            fi
-            set -u
-            
-            # Set test-specific environment variables
-            export SERVICE_DOMAIN="${SERVICE}.test.local"
-            
-            # Ensure traefik_default network exists for services that need it
-            # (traefik creates its own, other services use external)
-            if [[ "$SERVICE" != "traefik" ]]; then
-              docker network create traefik_default 2>/dev/null || true
-            fi
-            
-            # Step 1: Pull images (with timeout, quiet mode to reduce log noise)
-            echo "--- Pulling images ---"
-            if timeout 300 docker compose -f "$COMPOSE_FILE" pull --quiet 2>&1; then
-              echo "Images pulled successfully"
-            else
-              echo "WARNING: Some images may have failed to pull"
-            fi
-            
-            # Step 2: Start services (with timeout, quiet mode)
-            echo "--- Starting services ---"
-            if timeout 120 docker compose -f "$COMPOSE_FILE" up -d --quiet-pull 2>&1; then
-              echo "Services started"
+            if [[ "$RUNNING" -gt 0 ]]; then
+              # Show container status (compact format)
+              docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" ps --format "table {{.Name}}\t{{.Status}}"
               
-              # Step 3: Wait for services to be running
-              echo "--- Waiting for services to stabilize ---"
-              sleep 10
-              
-              # Step 4: Check container health
-              echo "--- Checking container status ---"
-              CONTAINERS=$(docker compose -f "$COMPOSE_FILE" ps -q 2>/dev/null | wc -l)
-              RUNNING=$(docker compose -f "$COMPOSE_FILE" ps --status running -q 2>/dev/null | wc -l)
-              
-              echo "Containers: $RUNNING running of $CONTAINERS defined"
-              
-              if [[ "$RUNNING" -gt 0 ]]; then
-                # Show container status
-                docker compose -f "$COMPOSE_FILE" ps
+              # Check each container is running (not restarting)
+              HEALTHY=true
+              for CONTAINER in $(docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" ps -q 2>/dev/null); do
+                STATE=$(docker inspect --format='{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo "unknown")
+                RESTARTS=$(docker inspect --format='{{.RestartCount}}' "$CONTAINER" 2>/dev/null || echo "0")
                 
-                # Basic integration check - verify containers respond
-                echo "--- Running integration checks ---"
-                HEALTHY=true
-                
-                # Check each container is running (not restarting)
-                for CONTAINER in $(docker compose -f "$COMPOSE_FILE" ps -q 2>/dev/null); do
-                  STATE=$(docker inspect --format='{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo "unknown")
-                  RESTARTS=$(docker inspect --format='{{.RestartCount}}' "$CONTAINER" 2>/dev/null || echo "0")
-                  
-                  if [[ "$STATE" != "running" ]] || [[ "$RESTARTS" -gt 2 ]]; then
-                    echo "WARNING: Container $CONTAINER - State: $STATE, Restarts: $RESTARTS"
-                    HEALTHY=false
-                  fi
-                done
-                
-                if [[ "$HEALTHY" == "true" ]]; then
-                  TEST_DETAILS="All containers running"
-                else
-                  TEST_STATUS="FAILED"
-                  TEST_DETAILS="Container health issues"
+                if [[ "$STATE" != "running" ]] || [[ "$RESTARTS" -gt 2 ]]; then
+                  CONTAINER_NAME=$(docker inspect --format='{{.Name}}' "$CONTAINER" 2>/dev/null | sed 's/^\///')
+                  echo "::warning::Container $CONTAINER_NAME - State: $STATE, Restarts: $RESTARTS"
+                  HEALTHY=false
                 fi
+              done
+              
+              if [[ "$HEALTHY" == "true" ]]; then
+                TEST_DETAILS="All containers running"
               else
                 TEST_STATUS="FAILED"
-                TEST_DETAILS="No containers running"
+                TEST_DETAILS="Container health issues"
               fi
             else
               TEST_STATUS="FAILED"
-              TEST_DETAILS="Failed to start services"
+              TEST_DETAILS="No containers running"
+            fi
+          else
+            TEST_STATUS="FAILED"
+            TEST_DETAILS="Failed to start services"
+          fi
+          
+          # Calculate duration
+          TEST_END=$(date +%s)
+          TEST_DURATION=$((TEST_END - TEST_START))
+          
+          echo ""
+          echo "Result: $TEST_STATUS (${TEST_DURATION}s) - $TEST_DETAILS"
+          
+          # Capture logs for failed tests
+          if [[ "$TEST_STATUS" == "FAILED" ]]; then
+            echo "--- Container logs ---"
+            docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" logs --tail=50 2>&1 || true
+            docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" logs --tail=100 > "test-results/${SERVICE}-logs.txt" 2>&1 || true
+          fi
+          
+          # Cleanup (suppress output)
+          echo "Cleaning up..."
+          docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" down --volumes --remove-orphans > /dev/null 2>&1 || true
+          docker network rm "$TRAEFIK_NETWORK" > /dev/null 2>&1 || true
+          
+          # Export results
+          echo "status=$TEST_STATUS" >> $GITHUB_OUTPUT
+          echo "duration=$TEST_DURATION" >> $GITHUB_OUTPUT
+          echo "details=$TEST_DETAILS" >> $GITHUB_OUTPUT
+          
+          # Write result file for aggregation
+          echo "${SERVICE}|${TEST_STATUS}|${TEST_DURATION}|${TEST_DETAILS}" > "test-results/${SERVICE}-result.txt"
+          
+          # Exit with failure if test failed
+          if [[ "$TEST_STATUS" == "FAILED" ]]; then
+            exit 1
+          fi
+
+      - name: Upload test result
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-result-${{ matrix.service }}
+          path: test-results/
+          retention-days: 30
+
+  # ============================================================================
+  # Job 6b: Aggregate Test Results
+  # ============================================================================
+  test-services-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [discover, test-services]
+    if: always()
+    outputs:
+      passed: ${{ steps.summarize.outputs.passed }}
+      failed: ${{ steps.summarize.outputs.failed }}
+      all_passed: ${{ steps.summarize.outputs.all_passed }}
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-result-*
+          path: all-results/
+          merge-multiple: true
+
+      - name: Aggregate results
+        id: summarize
+        run: |
+          set -uo pipefail
+          
+          echo "=== Aggregating test results ==="
+          
+          PASSED=0
+          FAILED=0
+          FAILED_SERVICES=""
+          
+          # Create summary
+          echo "# Docker Compose Test Results" > summary.md
+          echo "" >> summary.md
+          echo "| Service | Status | Duration | Details |" >> summary.md
+          echo "|---------|--------|----------|---------|" >> summary.md
+          
+          # Process each result file
+          for RESULT_FILE in all-results/*-result.txt; do
+            if [[ ! -f "$RESULT_FILE" ]]; then
+              continue
             fi
             
-            # Calculate duration
-            TEST_END=$(date +%s)
-            TEST_DURATION=$((TEST_END - TEST_START))
+            # Parse result: SERVICE|STATUS|DURATION|DETAILS
+            IFS='|' read -r SERVICE STATUS DURATION DETAILS < "$RESULT_FILE"
             
-            # Log results
-            echo ""
-            echo "Result: $TEST_STATUS ($TEST_DURATION seconds)"
-            
-            if [[ "$TEST_STATUS" == "PASSED" ]]; then
+            if [[ "$STATUS" == "PASSED" ]]; then
               PASSED=$((PASSED + 1))
-              echo "| $SERVICE | PASS | ${TEST_DURATION}s | $TEST_DETAILS |" >> test-results/summary.md
+              echo "| $SERVICE | PASS | ${DURATION}s | $DETAILS |" >> summary.md
             else
               FAILED=$((FAILED + 1))
               FAILED_SERVICES="${FAILED_SERVICES} ${SERVICE}"
-              echo "| $SERVICE | FAIL | ${TEST_DURATION}s | $TEST_DETAILS |" >> test-results/summary.md
-              
-              # Capture logs for failed tests
-              echo "--- Capturing logs for failed service ---"
-              docker compose -f "$COMPOSE_FILE" logs --tail=100 > "test-results/${SERVICE}-logs.txt" 2>&1 || true
+              echo "| $SERVICE | FAIL | ${DURATION}s | $DETAILS |" >> summary.md
             fi
-            
-            # Step 5: Cleanup - AGGRESSIVE (silent to keep logs actionable)
-            echo "--- Cleaning up ---"
-            
-            # Stop and remove containers
-            docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans > /dev/null 2>&1 || true
-            
-            # Remove images used by this service
-            IMAGES=$(docker compose -f "$COMPOSE_FILE" config 2>/dev/null | grep -E '^\s*image:' | sed 's/.*image:\s*//' | tr -d '"' || true)
-            for IMG in $IMAGES; do
-              docker rmi "$IMG" > /dev/null 2>&1 || true
-            done
-            
-            # Aggressive system prune
-            docker system prune -af --volumes > /dev/null 2>&1 || true
-            
-            # Re-create traefik_default network (may have been removed by prune)
-            # Skip if current service is traefik (it creates its own network)
-            if [[ "$SERVICE" != "traefik" ]]; then
-              docker network create traefik_default 2>/dev/null || true
-            fi
-            
-            # Log disk space after cleanup
-            DISK_AFTER=$(df / | tail -1 | awk '{print $4}')
-            DISK_FREED=$((DISK_AFTER - DISK_BEFORE))
-            echo "Disk available after cleanup: ${DISK_AFTER}K (freed: ${DISK_FREED}K)"
-            
           done
           
-          # Calculate total duration
-          PIPELINE_END=$(date +%s)
-          TOTAL_DURATION=$((PIPELINE_END - PIPELINE_START))
+          SERVICE_COUNT=${{ needs.discover.outputs.service_count }}
           
           # Write summary
-          echo "" >> test-results/summary.md
-          echo "## Summary" >> test-results/summary.md
-          echo "" >> test-results/summary.md
-          echo "- **Total Services:** $SERVICE_COUNT" >> test-results/summary.md
-          echo "- **Passed:** $PASSED" >> test-results/summary.md
-          echo "- **Failed:** $FAILED" >> test-results/summary.md
-          echo "- **Total Duration:** ${TOTAL_DURATION}s" >> test-results/summary.md
+          echo "" >> summary.md
+          echo "## Summary" >> summary.md
+          echo "" >> summary.md
+          echo "- **Total Services:** $SERVICE_COUNT" >> summary.md
+          echo "- **Passed:** $PASSED" >> summary.md
+          echo "- **Failed:** $FAILED" >> summary.md
           
           if [[ $FAILED -gt 0 ]]; then
-            echo "" >> test-results/summary.md
-            echo "### Failed Services" >> test-results/summary.md
-            echo "" >> test-results/summary.md
+            echo "" >> summary.md
+            echo "### Failed Services" >> summary.md
+            echo "" >> summary.md
             for SVC in $FAILED_SERVICES; do
-              echo "- $SVC" >> test-results/summary.md
+              echo "- $SVC" >> summary.md
             done
           fi
           
           echo ""
-          echo "============================================================"
-          echo "FINAL RESULTS"
-          echo "============================================================"
-          cat test-results/summary.md
+          echo "=== Test Results ==="
+          cat summary.md
           
           # Export results
           echo "passed=$PASSED" >> $GITHUB_OUTPUT
           echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "total_duration=$TOTAL_DURATION" >> $GITHUB_OUTPUT
           
-          # Final disk space check
-          echo ""
-          echo "=== Final disk space ==="
-          df -h /
-          
-          # Exit with failure if any tests failed
-          if [[ $FAILED -gt 0 ]]; then
-            echo ""
+          if [[ $FAILED -eq 0 ]]; then
+            echo "all_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "all_passed=false" >> $GITHUB_OUTPUT
             echo "::error::$FAILED service(s) failed testing:$FAILED_SERVICES"
-            exit 1
           fi
-          
-          echo ""
-          echo "All services passed testing!"
 
-      - name: Upload test results
+      - name: Upload aggregated results
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: docker-compose-test-results
-          path: test-results/
+          path: |
+            summary.md
+            all-results/
           retention-days: 30
+
+      - name: Add test summary to GitHub Actions
+        run: |
+          echo "## Docker Compose Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat summary.md >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
   # Job 7: Final Summary
@@ -1026,7 +1030,7 @@ jobs:
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [lint, validate-oci, discover, extract-images, cve-scan-summary, test-services]
+    needs: [lint, validate-oci, discover, extract-images, cve-scan-summary, test-services-summary]
     if: always()
     steps:
       - name: Generate summary
@@ -1041,7 +1045,7 @@ jobs:
           echo "| Discover Services | ${{ needs.discover.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Extract Images | ${{ needs.extract-images.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CVE Scan | ${{ needs.cve-scan-summary.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Services | ${{ needs.test-services.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Services | ${{ needs.test-services-summary.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "## Metrics" >> $GITHUB_STEP_SUMMARY
@@ -1050,6 +1054,8 @@ jobs:
           echo "- **Lint Warnings:** ${{ needs.lint.outputs.warning_count || 0 }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Services Discovered:** ${{ needs.discover.outputs.service_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Unique Images:** ${{ needs.extract-images.outputs.image_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests Passed:** ${{ needs.test-services-summary.outputs.passed || 0 }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests Failed:** ${{ needs.test-services-summary.outputs.failed || 0 }}" >> $GITHUB_STEP_SUMMARY
           
           if [[ "${{ needs.cve-scan-summary.result }}" == "success" ]]; then
             echo "- **Critical CVEs:** ${{ needs.cve-scan-summary.outputs.critical_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
@@ -1059,7 +1065,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Determine overall status (CVE scan is informational, not blocking)
-          if [[ "${{ needs.lint.result }}" == "success" && "${{ needs.test-services.result }}" == "success" ]]; then
+          if [[ "${{ needs.lint.result }}" == "success" && "${{ needs.test-services-summary.outputs.all_passed }}" == "true" ]]; then
             echo "## Result: PASSED" >> $GITHUB_STEP_SUMMARY
             if [[ "${{ needs.cve-scan-summary.outputs.critical_count }}" -gt 0 ]] 2>/dev/null; then
               echo "" >> $GITHUB_STEP_SUMMARY
@@ -1076,8 +1082,8 @@ jobs:
             exit 1
           fi
           
-          if [[ "${{ needs.test-services.result }}" == "failure" ]]; then
-            echo "Pipeline failed: Service tests failed"
+          if [[ "${{ needs.test-services-summary.outputs.all_passed }}" != "true" ]]; then
+            echo "Pipeline failed: ${{ needs.test-services-summary.outputs.failed }} service test(s) failed"
             exit 1
           fi
           
