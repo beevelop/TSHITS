@@ -135,7 +135,21 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: |
           # Check for bind mounts (except docker.sock which is allowed for traefik)
-          BINDS=$(docker compose config 2>/dev/null | grep -E 'type: bind' | grep -v 'docker.sock' || true)
+          # Use awk to detect bind mounts and check if source is docker.sock
+          CONFIG=$(docker compose config 2>/dev/null)
+          
+          # Find bind mounts that are NOT docker.sock
+          # The config format has 'type: bind' followed by 'source: <path>' on next lines
+          BINDS=$(echo "$CONFIG" | awk '
+            /type: bind/ { in_bind=1; bind_line=NR; next }
+            in_bind && /source:/ {
+              if ($2 !~ /docker\.sock/) {
+                print "Bind mount at line " bind_line ": " $0
+              }
+              in_bind=0
+            }
+            /^[^ ]/ { in_bind=0 }
+          ')
           
           if [[ -n "$BINDS" ]]; then
             echo "::error::Service contains bind mounts (not OCI compatible):"

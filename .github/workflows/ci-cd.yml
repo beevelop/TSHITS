@@ -267,9 +267,23 @@ jobs:
             set -u
             
             # Check for bind mounts (except docker.sock which is allowed for traefik)
-            BINDS=$(docker compose -f "$COMPOSE" config 2>/dev/null | \
-              grep -E 'type: bind' | \
-              grep -v 'docker.sock' || true)
+            # Use awk to detect bind mounts and check if source is docker.sock
+            CONFIG=$(docker compose -f "$COMPOSE" config 2>/dev/null)
+            
+            # Find bind mounts that are NOT docker.sock
+            # The config format has 'type: bind' followed by 'source: <path>' on next lines
+            BINDS=$(echo "$CONFIG" | awk '
+              /type: bind/ { in_bind=1; next }
+              in_bind && /source:/ {
+                if ($2 !~ /docker\.sock/) {
+                  print $0
+                  count++
+                }
+                in_bind=0
+              }
+              /^[^ ]/ { in_bind=0 }
+              END { exit (count > 0 ? 0 : 1) }
+            ' 2>/dev/null) || true
             
             if [[ -n "$BINDS" ]]; then
               BIND_COUNT=$(echo "$BINDS" | wc -l | tr -d ' ')
@@ -325,6 +339,7 @@ jobs:
             echo "compatible=false" >> $GITHUB_OUTPUT
             echo ""
             echo "::error::$ERRORS service(s) have OCI compatibility issues"
+            exit 1
           fi
           
           echo ""
@@ -1042,6 +1057,7 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Lint Docker Compose | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate OCI | ${{ needs.validate-oci.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Discover Services | ${{ needs.discover.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Extract Images | ${{ needs.extract-images.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CVE Scan | ${{ needs.cve-scan-summary.result }} |" >> $GITHUB_STEP_SUMMARY
@@ -1065,7 +1081,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Determine overall status (CVE scan is informational, not blocking)
-          if [[ "${{ needs.lint.result }}" == "success" && "${{ needs.test-services-summary.outputs.all_passed }}" == "true" ]]; then
+          if [[ "${{ needs.lint.result }}" == "success" && "${{ needs.validate-oci.result }}" == "success" && "${{ needs.test-services-summary.outputs.all_passed }}" == "true" ]]; then
             echo "## Result: PASSED" >> $GITHUB_STEP_SUMMARY
             if [[ "${{ needs.cve-scan-summary.outputs.critical_count }}" -gt 0 ]] 2>/dev/null; then
               echo "" >> $GITHUB_STEP_SUMMARY
@@ -1079,6 +1095,11 @@ jobs:
         run: |
           if [[ "${{ needs.lint.result }}" == "failure" ]]; then
             echo "Pipeline failed: Docker Compose linting failed"
+            exit 1
+          fi
+          
+          if [[ "${{ needs.validate-oci.result }}" == "failure" ]]; then
+            echo "Pipeline failed: OCI compatibility validation failed"
             exit 1
           fi
           
