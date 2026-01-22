@@ -1,0 +1,4 @@
+# Skip CI testing for this service
+# Reason: Requires valid Cloudflare Tunnel token (CF_TUNNEL_TOKEN)
+# The tunnel token must be obtained from Cloudflare Zero Trust Dashboard
+# and cannot be generated or mocked for testing purposes
