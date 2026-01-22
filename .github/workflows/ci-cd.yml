@@ -83,7 +83,7 @@ jobs:
       warning_count: ${{ steps.lint.outputs.warning_count }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Discover compose files to lint
         id: find-files
@@ -229,7 +229,7 @@ jobs:
       bind_mount_count: ${{ steps.validate.outputs.bind_mount_count }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check OCI compatibility
         id: validate
@@ -362,7 +362,7 @@ jobs:
       service_count: ${{ steps.discover.outputs.service_count }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Discover Docker Compose services
         id: discover
@@ -465,7 +465,7 @@ jobs:
       image_count: ${{ steps.extract.outputs.image_count }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Extract unique images from all compose files
         id: extract
@@ -768,7 +768,7 @@ jobs:
         service: ${{ fromJson(needs.discover.outputs.services) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Test service
         id: test
