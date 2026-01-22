@@ -90,7 +90,7 @@ services:
       # Unicorn
       GITLAB_UNICORN_MEMORY_MAX: ${GITLAB_UNICORN_MEMORY_MAX:-629145600}
     ports:
-      - "0.0.0.0:${GIT_PORT:-22}:22"
+      - "0.0.0.0:${GIT_PORT:-2222}:22"
     networks:
       - traefik
       - gitlab
