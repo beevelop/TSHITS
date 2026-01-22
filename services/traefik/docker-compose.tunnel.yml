@@ -1,0 +1,18 @@
+version: "3"
+name: traefik
+
+# Tunnel-only mode override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+#
+# This override file removes public port exposure, making Traefik
+# only accessible via Cloudflare Tunnel (cloudflared service).
+#
+# All traffic flows: Internet -> Cloudflare -> cloudflared -> Traefik -> Services
+
+services:
+
+  traefik:
+    # Override ports to remove public exposure
+    # Only expose dashboard on localhost for debugging
+    ports:
+      - "127.0.0.1:8080:8080"

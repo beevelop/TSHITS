@@ -104,6 +104,42 @@ The init container generates `traefik.yml` with:
 - Docker provider (auto-discovery)
 - Access logging enabled
 
+## Tunnel-Only Mode (Cloudflare Tunnel)
+
+For enhanced security, you can run Traefik behind a Cloudflare Tunnel, removing direct internet exposure. This requires the [cloudflared](../cloudflared/) service.
+
+### Architecture
+
+```
+Internet -> Cloudflare Edge -> cloudflared -> Traefik -> Services
+                                   |
+                          (no public ports exposed)
+```
+
+### Setup
+
+```bash
+# 1. Deploy cloudflared service first (see ../cloudflared/)
+
+# 2. Deploy Traefik in tunnel-only mode
+dc -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+```
+
+### What Changes
+
+| Mode | Port 80 | Port 443 | Port 8080 |
+|------|---------|----------|-----------|
+| **Standard** | Public | Public | Public |
+| **Tunnel-only** | Not exposed | Not exposed | localhost only |
+
+In tunnel-only mode:
+- All public traffic flows through Cloudflare Tunnel
+- Dashboard accessible only at `127.0.0.1:8080` for local debugging
+- Cloudflare Access policies control who can reach services
+- DDoS protection and WAF provided by Cloudflare
+
+See [cloudflared README](../cloudflared/README.md) for complete setup instructions.
+
 ## Common Operations
 
 ```bash
@@ -124,6 +160,9 @@ dc pull && dc up -d
 
 # Regenerate config
 dc --profile init up traefik-init
+
+# Deploy in tunnel-only mode
+dc -f docker-compose.yml -f docker-compose.tunnel.yml up -d
 ```
 
 ## Troubleshooting
