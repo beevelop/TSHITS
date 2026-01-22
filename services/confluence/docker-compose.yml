@@ -9,15 +9,15 @@ services:
     volumes:
       - confluence_data:/var/atlassian/application-data/confluence/
     environment:
-      - 'ATL_PROXY_NAME=${SERVICE_DOMAIN}'
+      - 'ATL_PROXY_NAME=${SERVICE_DOMAIN:-example.com}'
       - 'ATL_PROXY_PORT=443'
       - 'ATL_TOMCAT_SCHEME=https'
       - 'ATL_TOMCAT_SECURE=true'
-      - 'JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
-      - 'JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
-      - 'ATL_JDBC_URL=jdbc:postgresql://postgresql:5432/${POSTGRES_DB}'
-      - 'ATL_JDBC_USER=${POSTGRES_USER}'
-      - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS}'
+      - 'JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY:-1024m}'
+      - 'JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY:-2048m}'
+      - 'ATL_JDBC_URL=jdbc:postgresql://postgresql:5432/${POSTGRES_DB:-confluence}'
+      - 'ATL_JDBC_USER=${POSTGRES_USER:-confluence}'
+      - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS:-Swordfish}'
       - 'ATL_DB_TYPE=postgresql'
     ports:
       - "0.0.0.0:8091:8091"
@@ -38,7 +38,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.confluence.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.confluence.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.confluence.entrypoints=websecure"
       - "traefik.http.routers.confluence.tls=true"
       - "traefik.http.routers.confluence.tls.certresolver=letsencrypt"
@@ -51,14 +51,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASS}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-confluence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS:-Swordfish}
+      POSTGRES_DB: ${POSTGRES_DB:-confluence}
     networks:
       - confluence
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-confluence} -d ${POSTGRES_DB:-confluence}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,8 +72,8 @@ services:
 networks:
   confluence:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   confluence_data:

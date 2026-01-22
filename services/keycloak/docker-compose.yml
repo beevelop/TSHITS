@@ -8,13 +8,13 @@ services:
       - postgres
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASS}
-      KEYCLOAK_ADMIN: ${KEYCLOAK_USER}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_PASSWORD}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${POSTGRES_PASS:-Swordfish}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_PASSWORD:-Swordfish}
       KC_PROXY: edge
-      KC_HOSTNAME: ${SERVICE_DOMAIN}
+      KC_HOSTNAME: ${SERVICE_DOMAIN:-example.com}
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
     networks:
@@ -35,7 +35,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.keycloak.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.keycloak.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.keycloak.entrypoints=websecure"
       - "traefik.http.routers.keycloak.tls=true"
       - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
@@ -48,9 +48,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: ${POSTGRES_DB:-keycloak}
+      POSTGRES_USER: ${POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS:-Swordfish}
     networks:
       - keycloak
     restart: unless-stopped
@@ -69,8 +69,8 @@ services:
 networks:
   keycloak:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:

@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-metabase}
       POSTGRES_DB: ${DB_NAME:-metabase}
-      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
     networks:
       - metabase
     restart: unless-stopped
@@ -36,7 +36,7 @@ services:
       MB_DB_DBNAME: ${DB_NAME:-metabase}
       MB_DB_PORT: 5432
       MB_DB_USER: ${DB_USER:-metabase}
-      MB_DB_PASS: ${DB_PASS}
+      MB_DB_PASS: ${DB_PASS:-Swordfish}
       MB_DB_HOST: database
     networks:
       - metabase
@@ -55,7 +55,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.metabase.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.metabase.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.metabase.entrypoints=websecure"
       - "traefik.http.routers.metabase.tls=true"
       - "traefik.http.routers.metabase.tls.certresolver=letsencrypt"
@@ -65,8 +65,8 @@ services:
 networks:
   metabase:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:

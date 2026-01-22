@@ -9,14 +9,14 @@ services:
     environment:
       - SIGNUPS_ALLOWED=false
       - SHOW_PASSWORD_HINT=false
-      - ADMIN_TOKEN=${ADMIN_TOKEN}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_FROM=${SMTP_FROM}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_SECURITY=${SMTP_SECURITY}
-      - SMTP_USERNAME=${SMTP_USERNAME}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - DOMAIN=https://${SERVICE_DOMAIN}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURITY=${SMTP_SECURITY:-starttls}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - DOMAIN=https://${SERVICE_DOMAIN:-example.com}
     networks:
       - traefik
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.bitwarden.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.bitwarden.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.bitwarden.entrypoints=websecure"
       - "traefik.http.routers.bitwarden.tls=true"
       - "traefik.http.routers.bitwarden.tls.certresolver=letsencrypt"

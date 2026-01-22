@@ -7,11 +7,11 @@ services:
     depends_on:
       - mysql
     environment:
-      APP_URL: https://${SERVICE_DOMAIN}
+      APP_URL: https://${SERVICE_DOMAIN:-example.com}
       DB_HOST: mysql
-      DB_DATABASE: ${DB_NAME}
-      DB_USERNAME: ${DB_USER}
-      DB_PASSWORD: ${DB_PASS}
+      DB_DATABASE: ${DB_NAME:-monica}
+      DB_USERNAME: ${DB_USER:-monica}
+      DB_PASSWORD: ${DB_PASS:-Swordfish}
     env_file: monica.env
     networks:
       - traefik
@@ -30,7 +30,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.monica.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.monica.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.monica.entrypoints=websecure"
       - "traefik.http.routers.monica.tls=true"
       - "traefik.http.routers.monica.tls.certresolver=letsencrypt"
@@ -43,15 +43,15 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-Swordfish}
+      MYSQL_DATABASE: ${DB_NAME:-monica}
+      MYSQL_USER: ${DB_USER:-monica}
+      MYSQL_PASSWORD: ${DB_PASS:-Swordfish}
     networks:
       - monica
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASS}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASS:-Swordfish}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,8 +65,8 @@ services:
 networks:
   monica:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   mysql_data:

@@ -14,8 +14,8 @@ services:
       - rundeck_app_logs:/var/lib/rundeck/logs
       - rundeck_storage:/var/lib/rundeck/var/storage
     environment:
-      EXTERNAL_SERVER_URL: "https://${SERVICE_DOMAIN}"
-      RUNDECK_ADMIN_PASSWORD: "${RUNDECK_ADMIN_PASSWORD}"
+      EXTERNAL_SERVER_URL: "https://${SERVICE_DOMAIN:-example.com}"
+      RUNDECK_ADMIN_PASSWORD: "${RUNDECK_ADMIN_PASSWORD:-Swordfish}"
     networks:
       - rundeck
       - traefik
@@ -33,7 +33,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.rundeck.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.rundeck.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.rundeck.entrypoints=websecure"
       - "traefik.http.routers.rundeck.tls=true"
       - "traefik.http.routers.rundeck.tls.certresolver=letsencrypt"
@@ -43,8 +43,8 @@ services:
 networks:
   rundeck:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   rundeck_config:

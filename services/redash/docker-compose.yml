@@ -23,7 +23,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.redash.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.redash.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.redash.entrypoints=websecure"
       - "traefik.http.routers.redash.tls=true"
       - "traefik.http.routers.redash.tls.certresolver=letsencrypt"
@@ -81,7 +81,7 @@ services:
       REDASH_LOG_LEVEL: "INFO"
       REDASH_REDIS_URL: "redis://redis:6379/0"
       REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
-      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET:-changeme32chars0000000000000000}
       REDASH_WEB_WORKERS: 4
     ports:
       - "0.0.0.0:5000:5000"
@@ -114,7 +114,7 @@ services:
       REDASH_LOG_LEVEL: "INFO"
       REDASH_REDIS_URL: "redis://redis:6379/0"
       REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
-      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET:-changeme32chars0000000000000000}
       QUEUES: "queries,scheduled_queries,celery"
       WORKERS_COUNT: 2
     networks:

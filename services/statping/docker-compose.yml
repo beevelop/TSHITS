@@ -55,7 +55,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.statping.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.statping.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.statping.entrypoints=websecure"
       - "traefik.http.routers.statping.tls=true"
       - "traefik.http.routers.statping.tls.certresolver=letsencrypt"
@@ -65,8 +65,8 @@ services:
 networks:
   statping:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:

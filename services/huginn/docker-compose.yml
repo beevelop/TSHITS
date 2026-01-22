@@ -10,11 +10,11 @@ services:
       DATABASE_ADAPTER: postgresql
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
-      DATABASE_NAME: ${DB_NAME}
-      DATABASE_USERNAME: ${DB_USER}
-      DATABASE_PASSWORD: ${DB_PASS}
-      DOMAIN: ${SERVICE_DOMAIN}
-      INVITATION_CODE: ${INVITATION_CODE}
+      DATABASE_NAME: ${DB_NAME:-huginn}
+      DATABASE_USERNAME: ${DB_USER:-huginn}
+      DATABASE_PASSWORD: ${DB_PASS:-Swordfish}
+      DOMAIN: ${SERVICE_DOMAIN:-example.com}
+      INVITATION_CODE: ${INVITATION_CODE:-}
     networks:
       - traefik
       - huginn
@@ -32,7 +32,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.huginn.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.huginn.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.huginn.entrypoints=websecure"
       - "traefik.http.routers.huginn.tls=true"
       - "traefik.http.routers.huginn.tls.certresolver=letsencrypt"
@@ -45,13 +45,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_USER: ${DB_USER:-huginn}
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
     networks:
       - huginn
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-huginn}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,8 +65,8 @@ services:
 networks:
   huginn:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:

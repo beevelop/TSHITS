@@ -5,9 +5,9 @@ services:
     image: beevelop/shields:${SHIELDS_TAG}
     container_name: shields
     environment:
-      GH_CLIENT_ID: ${GH_CLIENT_ID}
-      GH_CLIENT_SECRET: ${GH_CLIENT_SECRET}
-      INFOSITE: http://${SERVICE_DOMAIN}
+      GH_CLIENT_ID: ${GH_CLIENT_ID:-}
+      GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-}
+      INFOSITE: http://${SERVICE_DOMAIN:-example.com}
     networks:
       shields:
         aliases:
@@ -47,7 +47,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.shields.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.shields.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.shields.entrypoints=websecure"
       - "traefik.http.routers.shields.tls=true"
       - "traefik.http.routers.shields.tls.certresolver=letsencrypt"

@@ -23,7 +23,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.tus.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.tus.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.tus.entrypoints=websecure"
       - "traefik.http.routers.tus.tls=true"
       - "traefik.http.routers.tus.tls.certresolver=letsencrypt"
@@ -32,8 +32,8 @@ services:
 
 networks:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   tus_data:

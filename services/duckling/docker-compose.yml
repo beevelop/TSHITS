@@ -20,7 +20,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.duckling.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.duckling.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.duckling.entrypoints=websecure"
       - "traefik.http.routers.duckling.tls=true"
       - "traefik.http.routers.duckling.tls.certresolver=letsencrypt"
@@ -29,5 +29,5 @@ services:
 
 networks:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true

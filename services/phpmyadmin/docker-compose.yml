@@ -6,7 +6,7 @@ services:
     container_name: phpmyadmin
     environment:
       PMA_ARBITRARY: 1
-      PMA_ABSOLUTE_URI: https://${SERVICE_DOMAIN}
+      PMA_ABSOLUTE_URI: https://${SERVICE_DOMAIN:-example.com}
     networks:
       - traefik
     restart: unless-stopped
@@ -23,7 +23,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.phpmyadmin.tls=true"
       - "traefik.http.routers.phpmyadmin.tls.certresolver=letsencrypt"
@@ -32,5 +32,5 @@ services:
 
 networks:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true

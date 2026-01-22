@@ -10,15 +10,15 @@ services:
       - directus_uploads:/directus/uploads
       - directus_extensions:/directus/extensions
     environment:
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Swordfish}
       DB_CLIENT: mysql
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_DATABASE: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASS}
-      PUBLIC_URL: https://${SERVICE_DOMAIN}
+      DB_DATABASE: ${DB_NAME:-directus}
+      DB_USER: ${DB_USER:-directus}
+      DB_PASSWORD: ${DB_PASS:-Swordfish}
+      PUBLIC_URL: https://${SERVICE_DOMAIN:-example.com}
     networks:
       - directus
       - traefik
@@ -36,7 +36,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.directus.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.directus.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.directus.entrypoints=websecure"
       - "traefik.http.routers.directus.tls=true"
       - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
@@ -49,15 +49,15 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-Swordfish}
+      MYSQL_DATABASE: ${DB_NAME:-directus}
+      MYSQL_USER: ${DB_USER:-directus}
+      MYSQL_PASSWORD: ${DB_PASS:-Swordfish}
     networks:
       - directus
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASS}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASS:-Swordfish}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,8 +71,8 @@ services:
 networks:
   directus:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   directus_uploads:

@@ -25,14 +25,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME:-weblate}
+      POSTGRES_USER: ${DB_USER:-weblate}
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
     networks:
       - weblate
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-weblate} -d ${DB_NAME:-weblate}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,11 +71,11 @@ services:
     volumes:
       - weblate_data:/app/data
     environment:
-      WEBLATE_SITE_DOMAIN: ${SERVICE_DOMAIN}
-      WEBLATE_ALLOWED_HOSTS: ${SERVICE_DOMAIN}
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
+      WEBLATE_SITE_DOMAIN: ${SERVICE_DOMAIN:-example.com}
+      WEBLATE_ALLOWED_HOSTS: ${SERVICE_DOMAIN:-example.com}
+      POSTGRES_DB: ${DB_NAME:-weblate}
+      POSTGRES_USER: ${DB_USER:-weblate}
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
       POSTGRES_HOST: postgres
       REDIS_HOST: redis
     env_file: weblate.env
@@ -96,7 +96,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.weblate.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.weblate.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.weblate.entrypoints=websecure"
       - "traefik.http.routers.weblate.tls=true"
       - "traefik.http.routers.weblate.tls.certresolver=letsencrypt"

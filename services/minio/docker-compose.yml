@@ -9,7 +9,7 @@ services:
       - minio_config:/root/.minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-Swordfish}
     networks:
       - traefik
     command: server /data --console-address ":9001"
@@ -27,7 +27,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.minio.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.minio.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.minio.entrypoints=websecure"
       - "traefik.http.routers.minio.tls=true"
       - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
@@ -36,8 +36,8 @@ services:
 
 networks:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   minio_data:

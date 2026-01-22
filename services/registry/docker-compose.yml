@@ -28,7 +28,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.registry.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.registry.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.registry.entrypoints=websecure"
       - "traefik.http.routers.registry.tls=true"
       - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
@@ -37,8 +37,8 @@ services:
 
 networks:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   registry_data:

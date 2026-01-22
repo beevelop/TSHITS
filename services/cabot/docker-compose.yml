@@ -88,7 +88,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.cabot.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.cabot.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.cabot.entrypoints=websecure"
       - "traefik.http.routers.cabot.tls=true"
       - "traefik.http.routers.cabot.tls.certresolver=letsencrypt"
@@ -117,8 +117,8 @@ services:
 networks:
   cabot:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:

@@ -12,8 +12,8 @@ services:
       - logs_data:/etc/traefik/logs
       - certs_data:/certs:ro
     environment:
-      - CF_API_EMAIL=${CLOUDFLARE_EMAIL}
-      - CF_API_KEY=${CLOUDFLARE_API_KEY}
+      - CF_API_EMAIL=${CLOUDFLARE_EMAIL:-admin@example.com}
+      - CF_API_KEY=${CLOUDFLARE_API_KEY:-}
     ports:
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
@@ -34,19 +34,19 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN:-traefik.example.com}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
       - "traefik.http.routers.dashboard.entrypoints=traefik"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
-      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH}"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH:-admin:$$apr1$$changeme}"
   traefik-init:
     image: alpine:3.23
     container_name: traefik-init
     volumes:
       - traefik_config:/config
     environment:
-      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL:-${CLOUDFLARE_EMAIL}}
-      - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN}
+      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL:-${CLOUDFLARE_EMAIL:-admin@example.com}}
+      - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN:-traefik.example.com}
     command:
       - sh
       - -c

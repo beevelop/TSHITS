@@ -41,19 +41,19 @@ services:
     volumes:
       - graylog_journal:/usr/share/graylog/data/journal
     environment:
-      - GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
-      - GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
+      - GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET:-changeme16chars!}
+      - GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2:-8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918}
       - GRAYLOG_HTTP_BIND_ADDRESS=0.0.0.0:9000
-      - GRAYLOG_HTTP_PUBLISH_URI=https://${SERVICE_DOMAIN}
-      - GRAYLOG_HTTP_EXTERNAL_URI=https://${SERVICE_DOMAIN}/
-      - GRAYLOG_TRANSPORT_EMAIL_ENABLED=${GRAYLOG_TRANSPORT_EMAIL_ENABLED}
-      - GRAYLOG_TRANSPORT_EMAIL_HOSTNAME=${GRAYLOG_TRANSPORT_EMAIL_HOSTNAME}
+      - GRAYLOG_HTTP_PUBLISH_URI=https://${SERVICE_DOMAIN:-example.com}
+      - GRAYLOG_HTTP_EXTERNAL_URI=https://${SERVICE_DOMAIN:-example.com}/
+      - GRAYLOG_TRANSPORT_EMAIL_ENABLED=${GRAYLOG_TRANSPORT_EMAIL_ENABLED:-false}
+      - GRAYLOG_TRANSPORT_EMAIL_HOSTNAME=${GRAYLOG_TRANSPORT_EMAIL_HOSTNAME:-}
       - GRAYLOG_TRANSPORT_EMAIL_PORT=25
       - GRAYLOG_TRANSPORT_EMAIL_USE_AUTH=true
       - GRAYLOG_TRANSPORT_EMAIL_USE_TLS=true
       - GRAYLOG_TRANSPORT_EMAIL_USE_SSL=false
-      - GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME=${GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME}
-      - GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD=${GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD}
+      - GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME=${GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME:-}
+      - GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD=${GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD:-}
       - GRAYLOG_TIMEZONE=Europe/Berlin
     ports:
       # Syslog TCP
@@ -83,7 +83,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.graylog.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.graylog.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.graylog.entrypoints=websecure"
       - "traefik.http.routers.graylog.tls=true"
       - "traefik.http.routers.graylog.tls.certresolver=letsencrypt"
@@ -113,8 +113,8 @@ services:
 networks:
   graylog:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   mongo_data:

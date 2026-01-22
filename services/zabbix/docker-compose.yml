@@ -7,9 +7,9 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
     environment:
-      - MARIADB_USER=${DB_USER}
-      - MARIADB_PASSWORD=${DB_PASS}
-      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASS}
+      - MARIADB_USER=${DB_USER:-zabbix}
+      - MARIADB_PASSWORD=${DB_PASS:-Swordfish}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASS:-Swordfish}
       - MARIADB_DATABASE=zabbix
     networks:
       - zabbix
@@ -36,8 +36,8 @@ services:
       - zabbix_externalscripts:/usr/lib/zabbix/externalscripts
     environment:
       - DB_SERVER_HOST=database
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_USER=${DB_USER:-zabbix}
+      - MYSQL_PASSWORD=${DB_PASS:-Swordfish}
       - MYSQL_DATABASE=zabbix
     ports:
       - "0.0.0.0:10051:10051"
@@ -66,8 +66,8 @@ services:
     environment:
       - ZBX_SERVER_HOST=server
       - DB_SERVER_HOST=database
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_USER=${DB_USER:-zabbix}
+      - MYSQL_PASSWORD=${DB_PASS:-Swordfish}
       - MYSQL_DATABASE=zabbix
       - PHP_TZ=${PHP_TZ:-Europe/Berlin}
     networks:
@@ -87,7 +87,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.zabbix.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.zabbix.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.zabbix.entrypoints=websecure"
       - "traefik.http.routers.zabbix.tls=true"
       - "traefik.http.routers.zabbix.tls.certresolver=letsencrypt"

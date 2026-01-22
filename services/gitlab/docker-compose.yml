@@ -7,9 +7,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     environment:
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME:-gitlabhq_production}
+      DB_USER: ${DB_USER:-gitlab}
+      DB_PASS: ${DB_PASS:-Swordfish}
       DB_EXTENSION: pg_trgm
     networks:
       - gitlab
@@ -39,9 +39,9 @@ services:
       DB_ADAPTER: postgresql
       DB_HOST: database
       DB_PORT: "5432"
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
-      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER:-gitlab}
+      DB_PASS: ${DB_PASS:-Swordfish}
+      DB_NAME: ${DB_NAME:-gitlabhq_production}
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -49,15 +49,15 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       GITLAB_TIMEZONE: ${GITLAB_TIMEZONE:-Berlin}
       # Core
-      GITLAB_HOST: ${SERVICE_DOMAIN}
-      GITLAB_SSH_HOST: ${GITLAB_SSH_HOST:-${SERVICE_DOMAIN}}
+      GITLAB_HOST: ${SERVICE_DOMAIN:-example.com}
+      GITLAB_SSH_HOST: ${GITLAB_SSH_HOST:-${SERVICE_DOMAIN:-example.com}}
       GITLAB_HTTPS: "true"
       GITLAB_HTTPS_HSTS_ENABLED: "false"
       # Secrets
-      GITLAB_ROOT_PASSWORD: ${GITLAB_ROOT_PASSWORD}
-      GITLAB_SECRETS_DB_KEY_BASE: ${GITLAB_SECRETS_DB_KEY_BASE}
-      GITLAB_SECRETS_SECRET_KEY_BASE: ${GITLAB_SECRETS_SECRET_KEY_BASE}
-      GITLAB_SECRETS_OTP_KEY_BASE: ${GITLAB_SECRETS_OTP_KEY_BASE}
+      GITLAB_ROOT_PASSWORD: ${GITLAB_ROOT_PASSWORD:-Swordfish}
+      GITLAB_SECRETS_DB_KEY_BASE: ${GITLAB_SECRETS_DB_KEY_BASE:-changeme64chars0000000000000000000000000000000000000000000000000}
+      GITLAB_SECRETS_SECRET_KEY_BASE: ${GITLAB_SECRETS_SECRET_KEY_BASE:-changeme64chars0000000000000000000000000000000000000000000000000}
+      GITLAB_SECRETS_OTP_KEY_BASE: ${GITLAB_SECRETS_OTP_KEY_BASE:-changeme64chars0000000000000000000000000000000000000000000000000}
       # Features
       GITLAB_NOTIFY_ON_BROKEN_BUILDS: ${GITLAB_NOTIFY_ON_BROKEN_BUILDS:-true}
       GITLAB_PROJECTS_SNIPPETS: ${GITLAB_PROJECTS_SNIPPETS:-true}
@@ -108,7 +108,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gitlab.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.gitlab.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.gitlab.entrypoints=websecure"
       - "traefik.http.routers.gitlab.tls=true"
       - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"

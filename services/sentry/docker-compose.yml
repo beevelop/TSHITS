@@ -23,9 +23,9 @@ services:
     depends_on:
       - server
     environment:
-      SENTRY_DB_NAME: ${DB_NAME}
-      SENTRY_DB_USER: ${DB_USER}
-      SENTRY_DB_PASSWORD: ${DB_PASS}
+      SENTRY_DB_NAME: ${DB_NAME:-sentry}
+      SENTRY_DB_USER: ${DB_USER:-sentry}
+      SENTRY_DB_PASSWORD: ${DB_PASS:-Swordfish}
     env_file: sentry.env
     networks:
       - sentry
@@ -61,13 +61,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_USER: ${DB_USER:-sentry}
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
     networks:
       - sentry
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-sentry}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -109,9 +109,9 @@ services:
       - sentry_files:/var/lib/sentry/files
       - sentry_config:/etc/sentry
     environment:
-      SENTRY_DB_NAME: ${DB_NAME}
-      SENTRY_DB_USER: ${DB_USER}
-      SENTRY_DB_PASSWORD: ${DB_PASS}
+      SENTRY_DB_NAME: ${DB_NAME:-sentry}
+      SENTRY_DB_USER: ${DB_USER:-sentry}
+      SENTRY_DB_PASSWORD: ${DB_PASS:-Swordfish}
     env_file: sentry.env
     networks:
       - sentry
@@ -130,7 +130,7 @@ services:
         max-file: "10"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sentry.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.sentry.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.sentry.entrypoints=websecure"
       - "traefik.http.routers.sentry.tls=true"
       - "traefik.http.routers.sentry.tls.certresolver=letsencrypt"
@@ -140,8 +140,8 @@ services:
 networks:
   sentry:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:

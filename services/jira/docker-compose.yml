@@ -9,14 +9,14 @@ services:
     volumes:
       - jira_data:/var/atlassian/application-data/jira/
     environment:
-      - 'ATL_JDBC_URL=jdbc:postgresql://postgresql:5432/${POSTGRES_DB}'
-      - 'ATL_JDBC_USER=${POSTGRES_USER}'
-      - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS}'
+      - 'ATL_JDBC_URL=jdbc:postgresql://postgresql:5432/${POSTGRES_DB:-jira}'
+      - 'ATL_JDBC_USER=${POSTGRES_USER:-jira}'
+      - 'ATL_JDBC_PASSWORD=${POSTGRES_PASS:-Swordfish}'
       - 'ATL_DB_DRIVER=org.postgresql.Driver'
       - 'ATL_DB_TYPE=postgres72'
-      - 'JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY}'
-      - 'JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY}'
-      - 'ATL_PROXY_NAME=${SERVICE_DOMAIN}'
+      - 'JVM_MINIMUM_MEMORY=${JVM_MINIMUM_MEMORY:-1024m}'
+      - 'JVM_MAXIMUM_MEMORY=${JVM_MAXIMUM_MEMORY:-2048m}'
+      - 'ATL_PROXY_NAME=${SERVICE_DOMAIN:-example.com}'
       - 'ATL_PROXY_PORT=443'
       - 'ATL_TOMCAT_SCHEME=https'
       - 'ATL_TOMCAT_SECURE=true'
@@ -37,7 +37,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.jira.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.jira.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.jira.entrypoints=websecure"
       - "traefik.http.routers.jira.tls=true"
       - "traefik.http.routers.jira.tls.certresolver=letsencrypt"
@@ -50,14 +50,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASS}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-jira}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS:-Swordfish}
+      POSTGRES_DB: ${POSTGRES_DB:-jira}
     networks:
       - jira
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jira} -d ${POSTGRES_DB:-jira}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,8 +71,8 @@ services:
 networks:
   jira:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   jira_data:

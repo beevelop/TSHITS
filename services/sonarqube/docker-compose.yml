@@ -54,7 +54,7 @@ services:
         max-file: "50"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sonarqube.rule=Host(`${SERVICE_DOMAIN}`)"
+      - "traefik.http.routers.sonarqube.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.sonarqube.entrypoints=websecure"
       - "traefik.http.routers.sonarqube.tls=true"
       - "traefik.http.routers.sonarqube.tls.certresolver=letsencrypt"
@@ -64,8 +64,8 @@ services:
 networks:
   sonarqube:
   traefik:
-    external:
-      name: traefik_default
+    name: traefik_default
+    external: true
 
 volumes:
   postgres_data:
