@@ -40,7 +40,7 @@ services:
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
       - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH}"
   traefik-init:
-    image: alpine:3.19
+    image: alpine:3.23
     container_name: traefik-init
     volumes:
       - traefik_config:/config
