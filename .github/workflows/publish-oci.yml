@@ -204,6 +204,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
       - name: Extract version
         id: version
         working-directory: services/${{ matrix.service }}
@@ -245,6 +248,34 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "release" ]]; then
             docker compose publish --with-env "${IMAGE}:latest"
             echo "✓ Published ${IMAGE}:latest"
+          fi
+
+      - name: Link package to repository
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ matrix.service }}"
+          SOURCE_URL="https://github.com/${{ github.repository }}"
+          
+          echo "=== Adding repository link annotation ==="
+          
+          # Authenticate crane with GHCR using the same token
+          echo "${{ secrets.GITHUB_TOKEN }}" | crane auth login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+          
+          # Add org.opencontainers.image.source annotation to link package to repository
+          # This enables GHCR to show the package under the repository's Packages tab
+          crane mutate "${IMAGE}:${VERSION}" \
+            -a "org.opencontainers.image.source=${SOURCE_URL}" \
+            -a "org.opencontainers.image.description=Docker Compose stack for ${{ matrix.service }}" \
+            -a "org.opencontainers.image.licenses=MIT"
+          echo "✓ Linked ${IMAGE}:${VERSION} to ${SOURCE_URL}"
+          
+          # Also update latest tag if published
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "release" ]]; then
+            crane mutate "${IMAGE}:latest" \
+              -a "org.opencontainers.image.source=${SOURCE_URL}" \
+              -a "org.opencontainers.image.description=Docker Compose stack for ${{ matrix.service }}" \
+              -a "org.opencontainers.image.licenses=MIT"
+            echo "✓ Linked ${IMAGE}:latest to ${SOURCE_URL}"
           fi
 
       - name: Generate summary
