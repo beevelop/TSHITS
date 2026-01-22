@@ -1,16 +1,18 @@
 # BeeCompose CI/CD Pipeline
-# Sequential Docker Compose Testing with CVE Scanning
+# Docker Compose Testing with Parallel CVE Scanning
 #
 # This workflow validates all Docker Compose configurations and scans images for vulnerabilities.
-# It runs sequentially to prevent resource conflicts and includes aggressive cleanup between tests.
+# CVE scanning runs in parallel (matrix strategy) for faster pipeline execution.
+# Service testing runs sequentially to prevent resource conflicts.
 #
 # Pipeline stages:
 # 1. Lint - Docker Compose linting with DCLint (syntax + best practices)
 # 2. Discover - Find all services and validate basic syntax
 # 3. Extract Images - Collect Docker images for CVE scanning
-# 4. CVE Scan - Security vulnerability scanning with Trivy
-# 5. Test Services - Sequential Docker Compose testing
-# 6. Summary - Final pipeline results
+# 4. CVE Scan - Security vulnerability scanning with Trivy (parallel per image)
+# 5. CVE Summary - Aggregate scan results
+# 6. Test Services - Sequential Docker Compose testing
+# 7. Summary - Final pipeline results
 
 name: CI/CD Pipeline
 
@@ -528,162 +530,203 @@ jobs:
           echo "$UNIQUE_IMAGES"
 
   # ============================================================================
-  # Job 5: CVE Vulnerability Scanning
+  # Job 5: CVE Vulnerability Scanning (Parallel)
   # ============================================================================
+  # Images are scanned in parallel using matrix strategy for faster pipeline execution.
+  # Each image runs in its own job, and results are aggregated in cve-scan-summary.
   cve-scan:
-    name: CVE Vulnerability Scan
+    name: CVE Scan - ${{ matrix.image }}
     runs-on: ubuntu-latest
     needs: extract-images
-    if: ${{ github.event.inputs.skip_cve_scan != 'true' }}
+    if: ${{ github.event.inputs.skip_cve_scan != 'true' && needs.extract-images.outputs.image_count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        image: ${{ fromJson(needs.extract-images.outputs.images) }}
+    steps:
+      - name: Install Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ matrix.image }}
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          timeout: '10m'
+        continue-on-error: true
+
+      - name: Parse scan results
+        id: parse
+        run: |
+          set -uo pipefail
+          
+          IMAGE="${{ matrix.image }}"
+          SAFE_NAME=$(echo "$IMAGE" | tr '/:' '__')
+          
+          echo "=== Scan results for: $IMAGE ==="
+          
+          if [[ -f trivy-results.json ]] && [[ -s trivy-results.json ]]; then
+            # Parse vulnerability counts
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json 2>/dev/null || echo 0)
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-results.json 2>/dev/null || echo 0)
+            MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' trivy-results.json 2>/dev/null || echo 0)
+            LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' trivy-results.json 2>/dev/null || echo 0)
+            
+            # Determine status
+            if [[ $CRITICAL -gt 0 ]]; then
+              STATUS="CRITICAL"
+            elif [[ $HIGH -gt 0 ]]; then
+              STATUS="HIGH"
+            else
+              STATUS="PASS"
+            fi
+            
+            echo "Critical: $CRITICAL, High: $HIGH, Medium: $MEDIUM, Low: $LOW"
+            echo "Status: $STATUS"
+            
+            # Export results
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+            echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+            echo "low=$LOW" >> $GITHUB_OUTPUT
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "scanned=true" >> $GITHUB_OUTPUT
+            
+            # Rename for artifact upload
+            mv trivy-results.json "${SAFE_NAME}.json"
+          else
+            echo "WARNING: Scan failed or produced no results"
+            echo "critical=0" >> $GITHUB_OUTPUT
+            echo "high=0" >> $GITHUB_OUTPUT
+            echo "medium=0" >> $GITHUB_OUTPUT
+            echo "low=0" >> $GITHUB_OUTPUT
+            echo "status=SKIPPED" >> $GITHUB_OUTPUT
+            echo "scanned=false" >> $GITHUB_OUTPUT
+            
+            # Create empty result file
+            echo '{"skipped": true, "image": "${{ matrix.image }}"}' > "${SAFE_NAME}.json"
+          fi
+          
+          echo "safe_name=${SAFE_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Upload individual scan result
+        uses: actions/upload-artifact@v4
+        with:
+          name: cve-scan-${{ steps.parse.outputs.safe_name }}
+          path: ${{ steps.parse.outputs.safe_name }}.json
+          retention-days: 30
+
+  # ============================================================================
+  # Job 5b: Aggregate CVE Scan Results
+  # ============================================================================
+  cve-scan-summary:
+    name: CVE Scan Summary
+    runs-on: ubuntu-latest
+    needs: [extract-images, cve-scan]
+    if: ${{ always() && needs.extract-images.result == 'success' && github.event.inputs.skip_cve_scan != 'true' }}
     outputs:
       critical_count: ${{ steps.summarize.outputs.critical_count }}
       high_count: ${{ steps.summarize.outputs.high_count }}
       scan_passed: ${{ steps.summarize.outputs.scan_passed }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Download all scan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cve-scan-*
+          path: scan-results/
+          merge-multiple: true
 
-      - name: Install Trivy
+      - name: Aggregate results
+        id: summarize
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
-
-      - name: Log disk space before scan
-        run: |
-          echo "=== Disk space before CVE scan ==="
-          df -h /
-
-      - name: Scan images for vulnerabilities
-        id: scan
-        run: |
-          set -euo pipefail
+          set -uo pipefail
           
-          echo "=== Starting batch CVE scan ==="
+          echo "=== Aggregating CVE scan results ==="
           
-          IMAGES='${{ needs.extract-images.outputs.images }}'
-          IMAGE_COUNT=${{ needs.extract-images.outputs.image_count }}
-          
-          mkdir -p scan-results
-          
-          # Initialize counters
           TOTAL_CRITICAL=0
           TOTAL_HIGH=0
           TOTAL_MEDIUM=0
           TOTAL_LOW=0
           SCANNED=0
-          FAILED=0
+          SKIPPED=0
           
           # Create summary file
-          echo "# CVE Scan Results" > scan-results/summary.md
-          echo "" >> scan-results/summary.md
-          echo "| Image | Critical | High | Medium | Low | Status |" >> scan-results/summary.md
-          echo "|-------|----------|------|--------|-----|--------|" >> scan-results/summary.md
+          echo "# CVE Scan Results" > summary.md
+          echo "" >> summary.md
+          echo "| Image | Critical | High | Medium | Low | Status |" >> summary.md
+          echo "|-------|----------|------|--------|-----|--------|" >> summary.md
           
-          for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
-            echo ""
-            echo "=== Scanning: $IMAGE ==="
-            SCANNED=$((SCANNED + 1))
-            
-            # Generate safe filename
-            SAFE_NAME=$(echo "$IMAGE" | tr '/:' '__')
-            
-            # Run Trivy scan
-            if trivy image --severity CRITICAL,HIGH,MEDIUM,LOW \
-                          --format json \
-                          --output "scan-results/${SAFE_NAME}.json" \
-                          --timeout 10m \
-                          "$IMAGE" 2>/dev/null; then
-              
-              # Parse results
-              CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
-              HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
-              MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
-              LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' "scan-results/${SAFE_NAME}.json" 2>/dev/null || echo 0)
-              
-              # Update totals
-              TOTAL_CRITICAL=$((TOTAL_CRITICAL + CRITICAL))
-              TOTAL_HIGH=$((TOTAL_HIGH + HIGH))
-              TOTAL_MEDIUM=$((TOTAL_MEDIUM + MEDIUM))
-              TOTAL_LOW=$((TOTAL_LOW + LOW))
-              
-              # Determine status
-              if [[ $CRITICAL -gt 0 ]]; then
-                STATUS="CRITICAL"
-              elif [[ $HIGH -gt 0 ]]; then
-                STATUS="HIGH"
-              else
-                STATUS="PASS"
-              fi
-              
-              echo "  Critical: $CRITICAL, High: $HIGH, Medium: $MEDIUM, Low: $LOW"
-              echo "| \`$IMAGE\` | $CRITICAL | $HIGH | $MEDIUM | $LOW | $STATUS |" >> scan-results/summary.md
-              
-            else
-              echo "  WARNING: Failed to scan image (may not exist or be accessible)"
-              FAILED=$((FAILED + 1))
-              echo "| \`$IMAGE\` | - | - | - | - | SKIPPED |" >> scan-results/summary.md
+          # Process each result file
+          for RESULT_FILE in scan-results/*.json; do
+            if [[ ! -f "$RESULT_FILE" ]]; then
+              continue
             fi
             
-            # Cleanup pulled image to save disk space
-            docker rmi "$IMAGE" 2>/dev/null || true
-            docker system prune -f > /dev/null 2>&1 || true
+            # Extract image name from filename
+            FILENAME=$(basename "$RESULT_FILE" .json)
+            IMAGE_NAME=$(echo "$FILENAME" | tr '__' ':/')
+            
+            # Check if skipped
+            if jq -e '.skipped' "$RESULT_FILE" > /dev/null 2>&1; then
+              echo "| \`$IMAGE_NAME\` | - | - | - | - | SKIPPED |" >> summary.md
+              SKIPPED=$((SKIPPED + 1))
+              continue
+            fi
+            
+            # Parse counts
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' "$RESULT_FILE" 2>/dev/null || echo 0)
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' "$RESULT_FILE" 2>/dev/null || echo 0)
+            MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' "$RESULT_FILE" 2>/dev/null || echo 0)
+            LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' "$RESULT_FILE" 2>/dev/null || echo 0)
+            
+            # Update totals
+            TOTAL_CRITICAL=$((TOTAL_CRITICAL + CRITICAL))
+            TOTAL_HIGH=$((TOTAL_HIGH + HIGH))
+            TOTAL_MEDIUM=$((TOTAL_MEDIUM + MEDIUM))
+            TOTAL_LOW=$((TOTAL_LOW + LOW))
+            SCANNED=$((SCANNED + 1))
+            
+            # Determine status
+            if [[ $CRITICAL -gt 0 ]]; then
+              STATUS="CRITICAL"
+            elif [[ $HIGH -gt 0 ]]; then
+              STATUS="HIGH"
+            else
+              STATUS="PASS"
+            fi
+            
+            echo "| \`$IMAGE_NAME\` | $CRITICAL | $HIGH | $MEDIUM | $LOW | $STATUS |" >> summary.md
           done
           
-          # Write totals to summary
-          echo "" >> scan-results/summary.md
-          echo "## Summary" >> scan-results/summary.md
-          echo "" >> scan-results/summary.md
-          echo "- **Images Scanned:** $SCANNED / $IMAGE_COUNT" >> scan-results/summary.md
-          echo "- **Images Skipped:** $FAILED" >> scan-results/summary.md
-          echo "- **Total Critical:** $TOTAL_CRITICAL" >> scan-results/summary.md
-          echo "- **Total High:** $TOTAL_HIGH" >> scan-results/summary.md
-          echo "- **Total Medium:** $TOTAL_MEDIUM" >> scan-results/summary.md
-          echo "- **Total Low:** $TOTAL_LOW" >> scan-results/summary.md
+          IMAGE_COUNT=${{ needs.extract-images.outputs.image_count }}
           
-          # Export for next step
-          echo "total_critical=$TOTAL_CRITICAL" >> $GITHUB_OUTPUT
-          echo "total_high=$TOTAL_HIGH" >> $GITHUB_OUTPUT
-          echo "scanned=$SCANNED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          # Write totals to summary
+          echo "" >> summary.md
+          echo "## Summary" >> summary.md
+          echo "" >> summary.md
+          echo "- **Images Scanned:** $SCANNED / $IMAGE_COUNT" >> summary.md
+          echo "- **Images Skipped:** $SKIPPED" >> summary.md
+          echo "- **Total Critical:** $TOTAL_CRITICAL" >> summary.md
+          echo "- **Total High:** $TOTAL_HIGH" >> summary.md
+          echo "- **Total Medium:** $TOTAL_MEDIUM" >> summary.md
+          echo "- **Total Low:** $TOTAL_LOW" >> summary.md
           
           echo ""
           echo "=== CVE Scan Complete ==="
-          cat scan-results/summary.md
-
-      - name: Log disk space after scan
-        run: |
-          echo "=== Disk space after CVE scan ==="
-          df -h /
-
-      - name: Upload scan results
-        uses: actions/upload-artifact@v4
-        with:
-          name: cve-scan-results
-          path: scan-results/
-          retention-days: 30
-
-      - name: Evaluate scan results
-        id: summarize
-        run: |
-          CRITICAL=${{ steps.scan.outputs.total_critical }}
-          HIGH=${{ steps.scan.outputs.total_high }}
+          cat summary.md
           
-          echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
-          echo "high_count=$HIGH" >> $GITHUB_OUTPUT
+          # Export results
+          echo "critical_count=$TOTAL_CRITICAL" >> $GITHUB_OUTPUT
+          echo "high_count=$TOTAL_HIGH" >> $GITHUB_OUTPUT
           
           # Report vulnerabilities but don't fail the pipeline
-          # This generates warnings for visibility while allowing the pipeline to continue
-          
-          if [[ $CRITICAL -gt 0 ]]; then
-            echo "::warning::Found $CRITICAL CRITICAL vulnerabilities - see CVE scan report for details"
+          if [[ $TOTAL_CRITICAL -gt 0 ]]; then
+            echo "::warning::Found $TOTAL_CRITICAL CRITICAL vulnerabilities - see CVE scan report for details"
           fi
           
-          if [[ $HIGH -gt 0 ]]; then
-            echo "::warning::Found $HIGH HIGH vulnerabilities - see CVE scan report for details"
+          if [[ $TOTAL_HIGH -gt 0 ]]; then
+            echo "::warning::Found $TOTAL_HIGH HIGH vulnerabilities - see CVE scan report for details"
           fi
           
           # Always pass - CVE scan is for reporting only
@@ -691,15 +734,30 @@ jobs:
           echo ""
           echo "CVE scan completed - report generated (non-blocking)"
 
+      - name: Upload aggregated results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cve-scan-results
+          path: |
+            summary.md
+            scan-results/
+          retention-days: 30
+
+      - name: Add CVE summary to GitHub Actions
+        run: |
+          echo "## CVE Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
   # ============================================================================
   # Job 6: Sequential Docker Compose Testing
   # ============================================================================
   test-services:
     name: Test Docker Compose Services
     runs-on: ubuntu-latest
-    needs: [discover, cve-scan]
+    needs: [discover, cve-scan-summary]
     # Run even if CVE scan is skipped, but not if it failed
-    if: ${{ always() && needs.discover.result == 'success' && (needs.cve-scan.result == 'success' || needs.cve-scan.result == 'skipped') }}
+    if: ${{ always() && needs.discover.result == 'success' && (needs.cve-scan-summary.result == 'success' || needs.cve-scan-summary.result == 'skipped') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -968,7 +1026,7 @@ jobs:
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [lint, validate-oci, discover, extract-images, cve-scan, test-services]
+    needs: [lint, validate-oci, discover, extract-images, cve-scan-summary, test-services]
     if: always()
     steps:
       - name: Generate summary
@@ -982,7 +1040,7 @@ jobs:
           echo "| Lint Docker Compose | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Discover Services | ${{ needs.discover.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Extract Images | ${{ needs.extract-images.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| CVE Scan | ${{ needs.cve-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CVE Scan | ${{ needs.cve-scan-summary.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Services | ${{ needs.test-services.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
@@ -993,9 +1051,9 @@ jobs:
           echo "- **Services Discovered:** ${{ needs.discover.outputs.service_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Unique Images:** ${{ needs.extract-images.outputs.image_count }}" >> $GITHUB_STEP_SUMMARY
           
-          if [[ "${{ needs.cve-scan.result }}" == "success" ]]; then
-            echo "- **Critical CVEs:** ${{ needs.cve-scan.outputs.critical_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
-            echo "- **High CVEs:** ${{ needs.cve-scan.outputs.high_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.cve-scan-summary.result }}" == "success" ]]; then
+            echo "- **Critical CVEs:** ${{ needs.cve-scan-summary.outputs.critical_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
+            echo "- **High CVEs:** ${{ needs.cve-scan-summary.outputs.high_count || 0 }} (informational)" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -1003,7 +1061,7 @@ jobs:
           # Determine overall status (CVE scan is informational, not blocking)
           if [[ "${{ needs.lint.result }}" == "success" && "${{ needs.test-services.result }}" == "success" ]]; then
             echo "## Result: PASSED" >> $GITHUB_STEP_SUMMARY
-            if [[ "${{ needs.cve-scan.outputs.critical_count }}" -gt 0 ]] 2>/dev/null; then
+            if [[ "${{ needs.cve-scan-summary.outputs.critical_count }}" -gt 0 ]] 2>/dev/null; then
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "> **Note:** CVE vulnerabilities detected - review the scan report artifact for details." >> $GITHUB_STEP_SUMMARY
             fi
@@ -1024,7 +1082,7 @@ jobs:
           fi
           
           # CVE scan is informational only - don't fail the pipeline
-          if [[ "${{ needs.cve-scan.result }}" == "failure" ]]; then
+          if [[ "${{ needs.cve-scan-summary.result }}" == "failure" ]]; then
             echo "::warning::CVE scan job failed - check logs for details"
           fi
           
