@@ -3,6 +3,12 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.3](https://github.com/beevelop/BeeCompose/compare/v26.1.2...v26.1.3) (2026-01-22)
+
+### CI/CD
+
+* **publish-oci:** include environment variables in OCI artifact publishing ([6243afa](https://github.com/beevelop/BeeCompose/commit/6243afaf569e0d4d9aaf8402764425d827911cde))
+
 ## [26.1.2](https://github.com/beevelop/BeeCompose/compare/v26.1.1...v26.1.2) (2026-01-22)
 
 ### Documentation
