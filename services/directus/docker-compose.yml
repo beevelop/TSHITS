@@ -2,7 +2,7 @@ version: "3"
 name: directus
 services:
   directus:
-    image: directus/directus:${DIRECTUS_VERSION}
+    image: directus/directus:${DIRECTUS_VERSION:-11.14.1}
     container_name: directus
     depends_on:
       - mysql
@@ -44,7 +44,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   mysql:
-    image: mysql:${MYSQL_TAG}
+    image: mysql:${MYSQL_TAG:-8.0}
     container_name: directus-mysql
     volumes:
       - mysql_data:/var/lib/mysql

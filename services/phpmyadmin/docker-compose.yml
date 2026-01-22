@@ -2,7 +2,7 @@ version: "3"
 name: phpmyadmin
 services:
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin:${PMA_VERSION}
+    image: phpmyadmin/phpmyadmin:${PMA_VERSION:-5.2.3}
     container_name: phpmyadmin
     environment:
       PMA_ARBITRARY: 1

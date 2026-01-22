@@ -2,7 +2,7 @@ version: "3"
 name: confluence
 services:
   confluence:
-    image: atlassian/confluence:${CONFLUENCE_VERSION}
+    image: atlassian/confluence:${CONFLUENCE_VERSION:-9.4.1-ubi9-jdk21}
     container_name: confluence
     depends_on:
       - postgresql
@@ -46,7 +46,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   postgresql:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: confluence-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

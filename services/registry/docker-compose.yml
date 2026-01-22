@@ -2,7 +2,7 @@ version: "3"
 name: registry
 services:
   registry:
-    image: registry:${REGISTRY_VERSION}
+    image: registry:${REGISTRY_VERSION:-3.0.0}
     container_name: registry
     volumes:
       - registry_data:/var/lib/registry

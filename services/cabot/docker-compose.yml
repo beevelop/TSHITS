@@ -2,14 +2,19 @@ version: "3"
 name: cabot
 services:
   beat:
-    image: cabotapp/cabot:${CABOT_VERSION}
+    image: cabotapp/cabot:${CABOT_VERSION:-0.11.16}
     container_name: cabot-beat
     depends_on:
       - postgres
       - rabbitmq
       - web
-    env_file:
-      - .env
+    environment:
+      CABOT_PLUGINS_ENABLED: ${CABOT_PLUGINS_ENABLED:-cabot_alert_twilio,cabot_alert_email,cabot_alert_slack}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-cabot.settings}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres@postgres:5432/postgres}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-amqp://guest:guest@rabbitmq:5672//}
+      LOG_FILE: ${LOG_FILE:-/dev/null}
+      HTTP_USER_AGENT: ${HTTP_USER_AGENT:-Cabot}
     networks:
       - cabot
     command: celery beat -A cabot
@@ -21,11 +26,12 @@ services:
         max-file: "50"
 
   postgres:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: cabot-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
+      # trust auth is safe here - postgres is internal-only (no exposed ports)
       POSTGRES_HOST_AUTH_METHOD: trust
     networks:
       - cabot
@@ -43,7 +49,7 @@ services:
         max-file: "50"
 
   rabbitmq:
-    image: rabbitmq:${RABBITMQ_TAG}
+    image: rabbitmq:${RABBITMQ_TAG:-3.13-alpine}
     container_name: cabot-rabbitmq
     networks:
       - cabot
@@ -61,13 +67,18 @@ services:
         max-file: "50"
 
   web:
-    image: cabotapp/cabot:${CABOT_VERSION}
+    image: cabotapp/cabot:${CABOT_VERSION:-0.11.16}
     container_name: cabot-web
     depends_on:
       - postgres
       - rabbitmq
-    env_file:
-      - .env
+    environment:
+      CABOT_PLUGINS_ENABLED: ${CABOT_PLUGINS_ENABLED:-cabot_alert_twilio,cabot_alert_email,cabot_alert_slack}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-cabot.settings}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres@postgres:5432/postgres}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-amqp://guest:guest@rabbitmq:5672//}
+      LOG_FILE: ${LOG_FILE:-/dev/null}
+      HTTP_USER_AGENT: ${HTTP_USER_AGENT:-Cabot}
     ports:
       - "0.0.0.0:5000:5000"
     networks:
@@ -96,14 +107,19 @@ services:
       - "traefik.docker.network=traefik_default"
 
   worker:
-    image: cabotapp/cabot:${CABOT_VERSION}
+    image: cabotapp/cabot:${CABOT_VERSION:-0.11.16}
     container_name: cabot-worker
     depends_on:
       - postgres
       - rabbitmq
       - web
-    env_file:
-      - .env
+    environment:
+      CABOT_PLUGINS_ENABLED: ${CABOT_PLUGINS_ENABLED:-cabot_alert_twilio,cabot_alert_email,cabot_alert_slack}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-cabot.settings}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres@postgres:5432/postgres}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-amqp://guest:guest@rabbitmq:5672//}
+      LOG_FILE: ${LOG_FILE:-/dev/null}
+      HTTP_USER_AGENT: ${HTTP_USER_AGENT:-Cabot}
     networks:
       - cabot
     command: celery worker -A cabot

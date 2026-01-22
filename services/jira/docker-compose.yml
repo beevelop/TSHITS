@@ -2,7 +2,7 @@ version: "3"
 name: jira
 services:
   jira:
-    image: atlassian/jira-software:${JIRA_VERSION}
+    image: atlassian/jira-software:${JIRA_VERSION:-10.6.1-ubi9-jdk17}
     container_name: jira
     depends_on:
       - postgresql
@@ -45,7 +45,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   postgresql:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: jira-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

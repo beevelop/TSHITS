@@ -2,7 +2,7 @@ version: "3"
 name: keycloak
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.2}
     container_name: keycloak
     depends_on:
       - postgres
@@ -43,7 +43,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   postgres:
-    image: postgres:${POSTGRES_VERSION}
+    image: postgres:${POSTGRES_VERSION:-17}
     container_name: keycloak-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

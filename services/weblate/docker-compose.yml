@@ -2,7 +2,7 @@ version: "3"
 name: weblate
 services:
   cache:
-    image: memcached:${MEMCACHED_TAG}
+    image: memcached:${MEMCACHED_TAG:-1.6-alpine}
     container_name: weblate-memcached
     networks:
       - weblate
@@ -20,7 +20,7 @@ services:
         max-file: "50"
 
   postgres:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: weblate-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -44,7 +44,7 @@ services:
         max-file: "50"
 
   redis:
-    image: redis:${REDIS_TAG}
+    image: redis:${REDIS_TAG:-7-alpine}
     container_name: weblate-redis
     networks:
       - weblate
@@ -62,7 +62,7 @@ services:
         max-file: "50"
 
   weblate:
-    image: weblate/weblate:${WEBLATE_VERSION}
+    image: weblate/weblate:${WEBLATE_VERSION:-5.11}
     container_name: weblate
     depends_on:
       - cache
@@ -71,14 +71,35 @@ services:
     volumes:
       - weblate_data:/app/data
     environment:
+      # Domain and hosts
       WEBLATE_SITE_DOMAIN: ${SERVICE_DOMAIN:-example.com}
       WEBLATE_ALLOWED_HOSTS: ${SERVICE_DOMAIN:-example.com}
+      # Database
       POSTGRES_DB: ${DB_NAME:-weblate}
       POSTGRES_USER: ${DB_USER:-weblate}
       POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
       POSTGRES_HOST: postgres
+      DATABASE_PORT_5432_TCP_ADDR: postgres
+      DATABASE_PORT_5432_TCP_PORT: 5432
+      # Redis
       REDIS_HOST: redis
-    env_file: weblate.env
+      # Admin
+      WEBLATE_ADMIN_NAME: ${WEBLATE_ADMIN_NAME:-admin}
+      WEBLATE_ADMIN_EMAIL: ${WEBLATE_ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Swordfish}
+      # Core settings
+      SECRET_KEY: ${SECRET_KEY:-changeme64chars0000000000000000000000000000000000000000000000000}
+      SITE_TITLE: ${SITE_TITLE:-Weblate}
+      WEBLATE_DEBUG: ${WEBLATE_DEBUG:-0}
+      WEBLATE_LOGLEVEL: ${WEBLATE_LOGLEVEL:-INFO}
+      WEBLATE_LOCK_DOWN: ${WEBLATE_LOCK_DOWN:-false}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-True}
+      # Email
+      WEBLATE_EMAIL: ${WEBLATE_EMAIL:-noreply@example.com}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
     networks:
       - weblate
       - traefik

@@ -2,7 +2,7 @@ version: "3"
 name: crowd
 services:
   crowd:
-    image: atlassian/crowd:${CROWD_VERSION}
+    image: atlassian/crowd:${CROWD_VERSION:-6.2.0-ubi9-jdk17}
     container_name: crowd
     depends_on:
       - postgresql
@@ -38,7 +38,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   postgresql:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: crowd-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

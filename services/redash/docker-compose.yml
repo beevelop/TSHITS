@@ -2,7 +2,7 @@ version: "3"
 name: redash
 services:
   nginx:
-    image: redash/nginx:${REDASH_NGINX_VERSION}
+    image: redash/nginx:${REDASH_NGINX_VERSION:-latest}
     container_name: redash-nginx
     depends_on:
       - server
@@ -31,11 +31,12 @@ services:
       - "traefik.docker.network=traefik_default"
 
   postgres:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: redash-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
+      # trust auth is safe here - postgres is internal-only (no exposed ports)
       POSTGRES_HOST_AUTH_METHOD: trust
     networks:
       - redash
@@ -53,7 +54,7 @@ services:
         max-file: "50"
 
   redis:
-    image: redis:${REDIS_TAG}
+    image: redis:${REDIS_TAG:-7-alpine}
     container_name: redash-redis
     networks:
       - redash
@@ -71,7 +72,7 @@ services:
         max-file: "50"
 
   server:
-    image: redash/redash:${REDASH_VERSION}
+    image: redash/redash:${REDASH_VERSION:-25.1.0}
     container_name: redash-server
     depends_on:
       - postgres
@@ -104,7 +105,7 @@ services:
         max-file: "50"
 
   worker:
-    image: redash/redash:${REDASH_VERSION}
+    image: redash/redash:${REDASH_VERSION:-25.1.0}
     container_name: redash-worker
     depends_on:
       - postgres

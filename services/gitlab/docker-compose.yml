@@ -2,7 +2,7 @@ version: "3"
 name: gitlab
 services:
   database:
-    image: sameersbn/postgresql:${POSTGRES_TAG}
+    image: sameersbn/postgresql:${POSTGRES_TAG:-15-20230628}
     container_name: gitlab-postgres
     volumes:
       - postgres_data:/var/lib/postgresql
@@ -27,7 +27,7 @@ services:
         max-file: "50"
 
   gitlab:
-    image: sameersbn/gitlab:${GITLAB_VERSION}
+    image: sameersbn/gitlab:${GITLAB_VERSION:-18.8.0}
     container_name: gitlab
     depends_on:
       - database

@@ -2,7 +2,7 @@ version: "3"
 name: monica
 services:
   monica:
-    image: monica:${MONICA_VERSION}
+    image: monica:${MONICA_VERSION:-5.0.0-beta.5-apache}
     container_name: monica
     depends_on:
       - mysql
@@ -38,7 +38,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   mysql:
-    image: mysql:${MYSQL_TAG}
+    image: mysql:${MYSQL_TAG:-8.0}
     container_name: monica-mysql
     volumes:
       - mysql_data:/var/lib/mysql

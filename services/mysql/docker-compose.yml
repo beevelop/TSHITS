@@ -2,7 +2,7 @@ version: "3"
 name: mysql
 services:
   mysql:
-    image: mysql:${MYSQL_VERSION}
+    image: mysql:${MYSQL_VERSION:-8.0}
     container_name: mysql
     volumes:
       - mysql_data:/var/lib/mysql

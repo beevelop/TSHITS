@@ -2,7 +2,7 @@ version: "3"
 name: dependency-track
 services:
   dtrack:
-    image: dependencytrack/bundled:${DEPENDENCY_TRACK_VERSION}
+    image: dependencytrack/bundled:${DEPENDENCY_TRACK_VERSION:-4.13.6}
     container_name: dtrack
     volumes:
       - dtrack_data:/data

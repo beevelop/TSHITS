@@ -2,7 +2,7 @@ version: "3"
 name: graylog
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION:-7.17.27}
     container_name: graylog-elasticsearch
     volumes:
       - es_data:/usr/share/elasticsearch/data
@@ -33,7 +33,7 @@ services:
         hard: -1
 
   graylog:
-    image: graylog/graylog:${GRAYLOG_VERSION}
+    image: graylog/graylog:${GRAYLOG_VERSION:-6.2}
     container_name: graylog
     depends_on:
       - elasticsearch
@@ -91,7 +91,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   mongodb:
-    image: mongo:${MONGO_VERSION}
+    image: mongo:${MONGO_VERSION:-8.0}
     container_name: graylog-mongodb
     volumes:
       - mongo_data:/data/db

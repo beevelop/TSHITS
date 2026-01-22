@@ -4,7 +4,7 @@ name: traefik
 services:
 
   traefik:
-    image: traefik:${TRAEFIK_VERSION}
+    image: traefik:${TRAEFIK_VERSION:-v3.6}
     container_name: traefik
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

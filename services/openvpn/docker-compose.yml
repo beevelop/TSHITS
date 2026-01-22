@@ -57,7 +57,7 @@ services:
     volumes:
       - openvpn_config:/etc/openvpn
     environment:
-      - OPENVPN_SERVER_URL=${OPENVPN_SERVER_URL:-udp://${SERVICE_DOMAIN}}
+      - OPENVPN_SERVER_URL=${OPENVPN_SERVER_URL:-udp://${SERVICE_DOMAIN:-example.com}}
     command:
       - sh
       - -c
@@ -117,7 +117,7 @@ services:
     volumes:
       - openvpn_tcp_config:/etc/openvpn
     environment:
-      - OPENVPN_SERVER_URL=${OPENVPN_TCP_SERVER_URL:-tcp://${SERVICE_DOMAIN}:443}
+      - OPENVPN_SERVER_URL=${OPENVPN_TCP_SERVER_URL:-tcp://${SERVICE_DOMAIN:-example.com}:443}
     command:
       - sh
       - -c

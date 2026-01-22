@@ -2,7 +2,7 @@ version: "3"
 name: huginn
 services:
   huginn:
-    image: ghcr.io/huginn/huginn:${HUGINN_VERSION}
+    image: ghcr.io/huginn/huginn:${HUGINN_VERSION:-latest}
     container_name: huginn
     depends_on:
       - postgres
@@ -40,7 +40,7 @@ services:
       - "traefik.docker.network=traefik_default"
 
   postgres:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: huginn-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

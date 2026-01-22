@@ -2,7 +2,7 @@ version: "3"
 name: rundeck
 services:
   rundeck:
-    image: jordan/rundeck:${RUNDECK_VERSION}
+    image: jordan/rundeck:${RUNDECK_VERSION:-5.18.0}
     container_name: rundeck
     volumes:
       - rundeck_config:/etc/rundeck

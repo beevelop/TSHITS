@@ -2,7 +2,7 @@ version: "3"
 name: sentry
 services:
   celery-cron:
-    image: getsentry/sentry:${SENTRY_VERSION}
+    image: getsentry/sentry:${SENTRY_VERSION:-24.12.0}
     container_name: sentry-celery-cron
     depends_on:
       - server
@@ -18,7 +18,7 @@ services:
         max-file: "10"
 
   celery-worker:
-    image: getsentry/sentry:${SENTRY_VERSION}
+    image: getsentry/sentry:${SENTRY_VERSION:-24.12.0}
     container_name: sentry-celery-worker
     depends_on:
       - server
@@ -38,7 +38,7 @@ services:
         max-file: "10"
 
   memcached:
-    image: memcached:${MEMCACHED_TAG}
+    image: memcached:${MEMCACHED_TAG:-1.6}
     container_name: sentry-memcached
     networks:
       - sentry
@@ -56,7 +56,7 @@ services:
         max-file: "50"
 
   postgres:
-    image: postgres:${POSTGRES_TAG}
+    image: postgres:${POSTGRES_TAG:-17-alpine}
     container_name: sentry-postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -79,7 +79,7 @@ services:
         max-file: "50"
 
   redis:
-    image: redis:${REDIS_TAG}
+    image: redis:${REDIS_TAG:-7-alpine}
     container_name: sentry-redis
     volumes:
       - redis_data:/data
@@ -99,7 +99,7 @@ services:
         max-file: "50"
 
   server:
-    image: getsentry/sentry:${SENTRY_VERSION}
+    image: getsentry/sentry:${SENTRY_VERSION:-24.12.0}
     container_name: sentry
     depends_on:
       - memcached
