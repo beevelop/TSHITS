@@ -239,12 +239,13 @@ jobs:
           # Publish versioned tag
           # --with-env includes environment variables with defaults in the OCI artifact
           # -y auto-confirms prompts in non-interactive CI environment
-          docker compose publish --with-env -y "${IMAGE}:${VERSION}"
+          # Using 'yes |' to pipe 'y' responses for bind mount prompts (workaround for docker/compose#13148)
+          yes | docker compose publish --with-env -y "${IMAGE}:${VERSION}"
           echo "✓ Published ${IMAGE}:${VERSION}"
           
           # Publish latest tag (only on main branch or release)
           if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "release" ]]; then
-            docker compose publish --with-env -y "${IMAGE}:latest"
+            yes | docker compose publish --with-env -y "${IMAGE}:latest"
             echo "✓ Published ${IMAGE}:latest"
           fi
 
