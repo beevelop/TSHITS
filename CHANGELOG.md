@@ -3,6 +3,13 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.6](https://github.com/beevelop/BeeCompose/compare/v26.1.5...v26.1.6) (2026-01-22)
+
+### Documentation
+
+* **README:** add dependencies section for various services ([0e179d0](https://github.com/beevelop/BeeCompose/commit/0e179d02c66061814bdb3c4756cf7c9b5ed17a64))
+* **README:** update service list and deployment instructions for clarity ([82b3665](https://github.com/beevelop/BeeCompose/commit/82b366561debb14a1ce6caefd1988354c030e282))
+
 ## [26.1.5](https://github.com/beevelop/BeeCompose/compare/v26.1.4...v26.1.5) (2026-01-22)
 
 ### CI/CD
