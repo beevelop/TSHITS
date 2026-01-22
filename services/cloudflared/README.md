@@ -55,15 +55,14 @@ Cloudflare Tunnel creates an encrypted outbound-only connection from your infras
 ### Step 1: Create Tunnel in Cloudflare Dashboard
 
 1. Go to [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com)
-2. Navigate to **Networks** → **Tunnels**
-3. Click **Create a tunnel**
-4. Select **Cloudflared** as the connector
-5. Name your tunnel (e.g., `beecompose-production`)
-6. Copy the **tunnel token** from the install command
+2. Navigate to **Networks** → **Connectors**
+3. Click **Create a connector** → **Cloudflared**
+4. Name your tunnel (e.g., `beecompose-production`)
+5. Copy the **tunnel token** from the install command
 
-### Step 2: Configure Public Hostnames
+### Step 2: Configure Published Application Routes
 
-In the tunnel configuration, add public hostnames:
+In the connector configuration, add **Published application routes**:
 
 | Public Hostname | Service | Notes |
 |-----------------|---------|-------|

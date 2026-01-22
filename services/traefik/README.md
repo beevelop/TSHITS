@@ -47,13 +47,19 @@ docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env ps
 
 ## Environment Variables
 
-### Required
+### Required (Standard Mode)
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `CLOUDFLARE_EMAIL` | CloudFlare account email | `admin@example.com` |
 | `CLOUDFLARE_API_KEY` | CloudFlare Global API key | `your_api_key` |
-| `TRAEFIK_AUTH` | Basic auth for dashboard (htpasswd format) | `admin:$$apr1$$...` |
+
+> **Note:** CloudFlare credentials are only required for standard mode (direct port exposure with Let's Encrypt).
+> In tunnel-only mode, TLS is terminated at Cloudflare edge, so no API credentials are needed.
+
+### Required (Tunnel-Only Mode)
+
+No CloudFlare API credentials needed! The only requirement is deploying [cloudflared](../cloudflared/).
 
 ### Optional
 
@@ -62,6 +68,24 @@ docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env ps
 | `COMPOSE_PROJECT_NAME` | Docker Compose project name | `traefik` |
 | `TRAEFIK_DOMAIN` | Domain for Traefik dashboard | `traefik.example.com` |
 | `TRAEFIK_EMAIL` | Email for Let's Encrypt notifications | Uses `CLOUDFLARE_EMAIL` |
+| `TRAEFIK_AUTH` | Basic auth for dashboard (htpasswd format) | `admin:$$apr1$$changeme` |
+
+### Generating Dashboard Credentials
+
+Generate `TRAEFIK_AUTH` credentials using htpasswd:
+
+```bash
+# Using htpasswd (install: apt install apache2-utils)
+htpasswd -nb admin your_password | sed 's/\$/\$\$/g'
+
+# Or using Docker (no install needed)
+docker run --rm httpd:alpine htpasswd -nb admin your_password | sed 's/\$/\$\$/g'
+
+# Example output (copy this to TRAEFIK_AUTH):
+# admin:$$apr1$$xyz123$$abcdefghijklmnop
+```
+
+The `sed` command doubles the `$` signs, which is required for docker-compose variable escaping.
 
 ## Volumes
 
@@ -106,24 +130,47 @@ The init container generates `traefik.yml` with:
 
 ## Tunnel-Only Mode (Cloudflare Tunnel)
 
-For enhanced security, you can run Traefik behind a Cloudflare Tunnel, removing direct internet exposure. This requires the [cloudflared](../cloudflared/) service.
+For enhanced security, run Traefik behind a Cloudflare Tunnel. This removes direct internet exposure and eliminates the need for CloudFlare API credentials.
+
+### Benefits
+
+- **No public ports** - Ports 80/443 not exposed to internet
+- **No CloudFlare API keys** - TLS terminated at Cloudflare edge
+- **Zero-trust access** - Control access via Cloudflare Access policies
+- **DDoS protection** - Cloudflare absorbs attacks at edge
+- **Existing labels work** - No changes to service configurations
 
 ### Architecture
 
 ```
-Internet -> Cloudflare Edge -> cloudflared -> Traefik -> Services
-                                   |
-                          (no public ports exposed)
+Internet -> Cloudflare Edge (TLS) -> cloudflared -> Traefik (HTTP) -> Services
+                                         |
+                                (no public ports exposed)
 ```
 
 ### Setup
 
 ```bash
-# 1. Deploy cloudflared service first (see ../cloudflared/)
+# 1. Deploy cloudflared first (see ../cloudflared/)
+docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d
 
-# 2. Deploy Traefik in tunnel-only mode
-dc -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+# 2. Generate tunnel-only config
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml \
+  --profile init up traefik-init
+
+# 3. Deploy Traefik in tunnel-only mode
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
 ```
+
+### Minimal Environment File (Tunnel-Only)
+
+```bash
+cat > .env << 'EOF'
+COMPOSE_PROJECT_NAME=traefik
+EOF
+```
+
+That's it! No CloudFlare API credentials, no domain configuration, no htpasswd auth needed for basic setup.
 
 ### What Changes
 

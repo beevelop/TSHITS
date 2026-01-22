@@ -16,6 +16,7 @@ Click on a service name to view its detailed README with configuration options, 
 |---------|-------------|--------------|
 | [bitwarden](services/bitwarden/README.md) | Self-hosted password manager (Vaultwarden) | `ghcr.io/beevelop/bitwarden` |
 | [cabot](services/cabot/README.md) | Monitoring and alerting platform | `ghcr.io/beevelop/cabot` |
+| [cloudflared](services/cloudflared/README.md) | Cloudflare Tunnel for zero-trust access | `ghcr.io/beevelop/cloudflared` |
 | [confluence](services/confluence/README.md) | Atlassian team collaboration and wiki | `ghcr.io/beevelop/confluence` |
 | [crowd](services/crowd/README.md) | Atlassian SSO and identity management | `ghcr.io/beevelop/crowd` |
 | [dependency-track](services/dependency-track/README.md) | OWASP component analysis platform | `ghcr.io/beevelop/dependency-track` |
@@ -141,6 +142,27 @@ docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik 
 # Then deploy other services
 docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d
 ```
+
+### Cloudflare Tunnel (Zero-Trust Mode)
+
+For enhanced security, deploy services behind Cloudflare Tunnel to avoid exposing ports to the public internet:
+
+```bash
+# 1. Deploy Traefik in tunnel-only mode (no public ports)
+docker compose -f oci://ghcr.io/beevelop/traefik:latest \
+  -f oci://ghcr.io/beevelop/traefik-tunnel:latest \
+  --env-file .env.traefik up -d
+
+# 2. Deploy cloudflared (configure tunnel token in .env)
+docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d
+
+# 3. Deploy services as normal
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d
+```
+
+Traffic flows: `Internet → Cloudflare Edge → cloudflared → Traefik → Services`
+
+See [cloudflared README](services/cloudflared/README.md) for complete setup instructions.
 
 ## Project Structure
 
