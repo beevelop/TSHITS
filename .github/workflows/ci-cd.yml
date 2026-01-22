@@ -632,7 +632,7 @@ jobs:
       scan_passed: ${{ steps.summarize.outputs.scan_passed }}
     steps:
       - name: Download all scan artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: cve-scan-*
           path: scan-results/
@@ -933,7 +933,7 @@ jobs:
       all_passed: ${{ steps.summarize.outputs.all_passed }}
     steps:
       - name: Download all test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: test-result-*
           path: all-results/
