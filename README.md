@@ -2,7 +2,48 @@
 
 **Production-ready Docker Compose stacks, published as OCI artifacts.**
 
-A curated collection of Docker Compose configurations for self-hosted services. Started in April 2020, BeeCompose provides production-ready setups for 30 popular self-hosted applications with Traefik integration, native healthchecks, and one-command deployment from GitHub Container Registry.
+BeeCompose provides curated Docker Compose configurations for 30+ self-hosted services. Each service is published as an OCI artifact to GitHub Container Registry, enabling one-command deployment without cloning repositories.
+
+> **Note:** This README appears on all package pages because GitHub Container Registry
+> doesn't support per-package READMEs. For detailed documentation, see the service-specific
+> README linked in the table below.
+
+## Select a Service to Deploy
+
+Click on a service name to view its detailed README with configuration options, environment variables, and deployment instructions.
+
+| Service | Description | OCI Artifact |
+|---------|-------------|--------------|
+| [bitwarden](services/bitwarden/README.md) | Self-hosted password manager (Vaultwarden) | `ghcr.io/beevelop/bitwarden` |
+| [cabot](services/cabot/README.md) | Monitoring and alerting platform | `ghcr.io/beevelop/cabot` |
+| [confluence](services/confluence/README.md) | Atlassian team collaboration and wiki | `ghcr.io/beevelop/confluence` |
+| [crowd](services/crowd/README.md) | Atlassian SSO and identity management | `ghcr.io/beevelop/crowd` |
+| [dependency-track](services/dependency-track/README.md) | OWASP component analysis platform | `ghcr.io/beevelop/dependency-track` |
+| [directus](services/directus/README.md) | Headless CMS and REST/GraphQL API | `ghcr.io/beevelop/directus` |
+| [duckling](services/duckling/README.md) | NLP text parser for structured data | `ghcr.io/beevelop/duckling` |
+| [gitlab](services/gitlab/README.md) | Complete DevOps platform with CI/CD | `ghcr.io/beevelop/gitlab` |
+| [graylog](services/graylog/README.md) | Centralized log management | `ghcr.io/beevelop/graylog` |
+| [huginn](services/huginn/README.md) | Self-hosted IFTTT/Zapier alternative | `ghcr.io/beevelop/huginn` |
+| [jira](services/jira/README.md) | Atlassian issue tracking and projects | `ghcr.io/beevelop/jira` |
+| [keycloak](services/keycloak/README.md) | Identity and access management | `ghcr.io/beevelop/keycloak` |
+| [metabase](services/metabase/README.md) | Business intelligence and analytics | `ghcr.io/beevelop/metabase` |
+| [minio](services/minio/README.md) | S3-compatible object storage | `ghcr.io/beevelop/minio` |
+| [monica](services/monica/README.md) | Personal relationship management | `ghcr.io/beevelop/monica` |
+| [mysql](services/mysql/README.md) | MySQL database server | `ghcr.io/beevelop/mysql` |
+| [nexus](services/nexus/README.md) | Sonatype artifact repository manager | `ghcr.io/beevelop/nexus` |
+| [openvpn](services/openvpn/README.md) | VPN server (UDP and TCP) | `ghcr.io/beevelop/openvpn` |
+| [phpmyadmin](services/phpmyadmin/README.md) | MySQL web administration | `ghcr.io/beevelop/phpmyadmin` |
+| [redash](services/redash/README.md) | Data visualization and dashboards | `ghcr.io/beevelop/redash` |
+| [registry](services/registry/README.md) | Private Docker registry | `ghcr.io/beevelop/registry` |
+| [rundeck](services/rundeck/README.md) | Job scheduler and runbook automation | `ghcr.io/beevelop/rundeck` |
+| [sentry](services/sentry/README.md) | Error tracking and performance monitoring | `ghcr.io/beevelop/sentry` |
+| [shields](services/shields/README.md) | Self-hosted badge generation | `ghcr.io/beevelop/shields` |
+| [sonarqube](services/sonarqube/README.md) | Code quality inspection | `ghcr.io/beevelop/sonarqube` |
+| [statping](services/statping/README.md) | Status page and uptime monitoring | `ghcr.io/beevelop/statping` |
+| [traefik](services/traefik/README.md) | Reverse proxy with automatic HTTPS | `ghcr.io/beevelop/traefik` |
+| [tus](services/tus/README.md) | Resumable file upload server | `ghcr.io/beevelop/tus` |
+| [weblate](services/weblate/README.md) | Continuous localization platform | `ghcr.io/beevelop/weblate` |
+| [zabbix](services/zabbix/README.md) | Enterprise monitoring solution | `ghcr.io/beevelop/zabbix` |
 
 ## Quick Start
 
@@ -11,26 +52,19 @@ A curated collection of Docker Compose configurations for self-hosted services. 
 Deploy any service directly from GitHub Container Registry without cloning the repository:
 
 ```bash
-# 1. Create your environment file
-cat > .env.production << 'EOF'
+# 1. Create your environment file (check service README for required variables)
+cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=gitlab
 SERVICE_DOMAIN=gitlab.example.com
-DB_USER=gitlab
 DB_PASS=your-secure-password
-GITLAB_ROOT_PASSWORD=your-root-password
+# ... see service README for all options
 EOF
 
 # 2. Deploy from OCI artifact
-docker compose \
-  -f oci://ghcr.io/beevelop/gitlab:latest \
-  --env-file .env.production \
-  up -d
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env up -d
 
 # 3. Check status
-docker compose \
-  -f oci://ghcr.io/beevelop/gitlab:latest \
-  --env-file .env.production \
-  ps
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env ps
 ```
 
 ### Clone and Customize
@@ -38,7 +72,6 @@ docker compose \
 For customization or development:
 
 ```bash
-# Clone the repository
 git clone https://github.com/beevelop/beecompose.git
 cd beecompose/services/gitlab
 
@@ -62,53 +95,15 @@ docker compose --env-file .env.production up -d
 > **Note:** OCI artifact deployment (`docker compose -f oci://...`) requires Docker 25.0 or later.
 > For older Docker versions, use the "Clone and Customize" method.
 
-## Available Services
-
-All services are published to `ghcr.io/beevelop/<service>:<version>`.
-
-| Service | Description | OCI Artifact |
-|---------|-------------|--------------|
-| **bitwarden** | Password manager (Vaultwarden) | `ghcr.io/beevelop/bitwarden` |
-| **cabot** | Monitoring and alerts | `ghcr.io/beevelop/cabot` |
-| **confluence** | Atlassian documentation | `ghcr.io/beevelop/confluence` |
-| **crowd** | Atlassian SSO | `ghcr.io/beevelop/crowd` |
-| **dependency-track** | Dependency security analysis | `ghcr.io/beevelop/dependency-track` |
-| **directus** | Headless CMS and REST API | `ghcr.io/beevelop/directus` |
-| **duckling** | NLP text parser | `ghcr.io/beevelop/duckling` |
-| **gitlab** | Git hosting with CI/CD | `ghcr.io/beevelop/gitlab` |
-| **graylog** | Log aggregation | `ghcr.io/beevelop/graylog` |
-| **huginn** | Self-hosted IFTTT/Zapier | `ghcr.io/beevelop/huginn` |
-| **jira** | Atlassian project management | `ghcr.io/beevelop/jira` |
-| **keycloak** | Identity and access management | `ghcr.io/beevelop/keycloak` |
-| **metabase** | Database analytics | `ghcr.io/beevelop/metabase` |
-| **minio** | S3-compatible object storage | `ghcr.io/beevelop/minio` |
-| **monica** | Personal CRM | `ghcr.io/beevelop/monica` |
-| **mysql** | MySQL database server | `ghcr.io/beevelop/mysql` |
-| **nexus** | Binary repository manager | `ghcr.io/beevelop/nexus` |
-| **openvpn** | OpenVPN server | `ghcr.io/beevelop/openvpn` |
-| **phpmyadmin** | MySQL web administration | `ghcr.io/beevelop/phpmyadmin` |
-| **redash** | Data visualization | `ghcr.io/beevelop/redash` |
-| **registry** | Private Docker registry | `ghcr.io/beevelop/registry` |
-| **rundeck** | Infrastructure automation | `ghcr.io/beevelop/rundeck` |
-| **sentry** | Error tracking | `ghcr.io/beevelop/sentry` |
-| **shields** | Badge generation | `ghcr.io/beevelop/shields` |
-| **sonarqube** | Code quality analysis | `ghcr.io/beevelop/sonarqube` |
-| **statping** | Status page and monitoring | `ghcr.io/beevelop/statping` |
-| **traefik** | Reverse proxy with Let's Encrypt | `ghcr.io/beevelop/traefik` |
-| **tus** | Resumable file uploads | `ghcr.io/beevelop/tus` |
-| **weblate** | Translation management | `ghcr.io/beevelop/weblate` |
-| **zabbix** | Enterprise monitoring | `ghcr.io/beevelop/zabbix` |
-
 ## Common Operations
 
 | Task | Command |
 |------|---------|
-| Start service | `docker compose --env-file .env.production up -d` |
-| Stop service | `docker compose --env-file .env.production down` |
-| View logs | `docker compose --env-file .env.production logs -f` |
-| Check status | `docker compose --env-file .env.production ps` |
-| Update images | `docker compose --env-file .env.production pull && docker compose --env-file .env.production up -d` |
-| Destroy (with data) | `docker compose --env-file .env.production down -v --rmi all` |
+| Start service | `docker compose --env-file .env up -d` |
+| Stop service | `docker compose --env-file .env down` |
+| View logs | `docker compose --env-file .env logs -f` |
+| Check status | `docker compose --env-file .env ps` |
+| Update images | `docker compose --env-file .env pull && docker compose --env-file .env up -d` |
 
 ### Using OCI Artifacts
 
@@ -116,7 +111,7 @@ When deploying from GHCR, include the OCI URL in each command:
 
 ```bash
 # Define convenience alias
-alias dc="docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.production"
+alias dc="docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env"
 
 # Now use it for all operations
 dc up -d
@@ -125,130 +120,46 @@ dc ps
 dc down
 ```
 
+## Architecture
+
+All services are pre-configured for:
+
+- **Traefik v3** reverse proxy with automatic Let's Encrypt SSL (DNS-01 via CloudFlare)
+- **Named volumes** for data persistence (no bind mounts for OCI compatibility)
+- **Health checks** for container monitoring
+- **JSON logging** with size limits (500k max, 50 files)
+- **Restart policy** `unless-stopped` for reliability
+
+### Traefik Integration
+
+Deploy Traefik first, then other services automatically connect via the `traefik_default` network:
+
+```bash
+# Deploy Traefik
+docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik up -d
+
+# Then deploy other services
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d
+```
+
 ## Project Structure
 
 ```
 beecompose/
-├── .dclintrc.yaml            # Docker Compose linter configuration
-├── .github/
-│   ├── workflows/
-│   │   ├── ci-cd.yml         # CI/CD pipeline
-│   │   └── publish-oci.yml   # OCI artifact publishing
-│   └── CI-CD.md              # Pipeline documentation
+├── services/
+│   └── <service>/
+│       ├── docker-compose.yml    # Compose configuration
+│       ├── README.md             # Service documentation (START HERE)
+│       ├── .env                  # Version tags (committed)
+│       ├── .env.example          # Example configuration (committed)
+│       └── .env.<environ>        # Your secrets (gitignored)
 ├── docs/
-│   ├── AUDIT.md              # Service inventory
-│   ├── BACKUP.md             # Backup and restore procedures
-│   ├── DEPLOYMENT.md         # Deployment guide
-│   ├── DEPENDENCIES.md       # Service dependency graph
-│   ├── MIGRATION.md          # Migration from legacy setup
-│   ├── OCI_NAMING.md         # OCI naming conventions
-│   └── TESTING.md            # Testing procedures
-└── services/
-    └── <service>/
-        ├── docker-compose.yml    # Compose configuration
-        ├── .env                  # Version tags (committed)
-        ├── .env.example          # Example configuration (committed)
-        └── .env.<environ>        # Your secrets (gitignored)
-```
-
-## Configuration
-
-### Environment Files
-
-Each service uses environment files for configuration:
-
-**.env** (committed) - Version tags:
-```bash
-GITLAB_VERSION=16.0.0
-POSTGRES_VERSION=15-alpine
-```
-
-**.env.example** (committed) - Template with placeholders:
-```bash
-COMPOSE_PROJECT_NAME=gitlab
-SERVICE_DOMAIN=gitlab.example.com
-DB_USER=bee
-DB_PASS=Swordfish
-```
-
-**.env.production** (gitignored) - Your actual configuration:
-```bash
-COMPOSE_PROJECT_NAME=gitlab
-SERVICE_DOMAIN=gitlab.yourdomain.com
-DB_USER=gitlab
-DB_PASS=your-secure-password
-```
-
-### Traefik Integration
-
-All services are pre-configured for Traefik v3 reverse proxy with Let's Encrypt SSL.
-
-**First, deploy Traefik:**
-
-```bash
-# Create environment
-cat > .env.production << 'EOF'
-COMPOSE_PROJECT_NAME=traefik
-TRAEFIK_DOMAIN=traefik.example.com
-CLOUDFLARE_EMAIL=your@email.com
-CLOUDFLARE_API_KEY=your-api-key
-EOF
-
-# Deploy Traefik
-docker compose \
-  -f oci://ghcr.io/beevelop/traefik:latest \
-  --env-file .env.production \
-  up -d
-```
-
-**Then deploy other services.** They automatically connect via the `traefik_default` network.
-
-### Named Volumes
-
-All services use Docker named volumes for data persistence. Volume names follow the pattern:
-
-```
-${COMPOSE_PROJECT_NAME}_<purpose>
-
-Examples:
-- gitlab_app_data
-- gitlab_postgres_data
-- gitlab_redis_data
-```
-
-List volumes for a service:
-
-```bash
-docker volume ls --filter "name=gitlab"
-```
-
-## Health Checks
-
-All services include native Docker healthcheck directives. Check health status with:
-
-```bash
-docker compose --env-file .env.production ps
-```
-
-Healthy containers show `(healthy)` in the STATUS column.
-
-## Backups
-
-See [docs/BACKUP.md](docs/BACKUP.md) for comprehensive backup and restore procedures including:
-
-- Tar archive backups
-- Database-specific dumps (PostgreSQL, MySQL, MongoDB, Redis)
-- Restic for production environments
-- Automated backup scripts
-
-Quick backup example:
-
-```bash
-# Backup a volume
-docker run --rm \
-  -v gitlab_postgres_data:/data:ro \
-  -v $(pwd)/backups:/backup \
-  alpine tar czf /backup/gitlab_postgres_$(date +%Y%m%d).tar.gz -C /data .
+│   ├── BACKUP.md                 # Backup and restore procedures
+│   ├── DEPLOYMENT.md             # Deployment guide
+│   └── ...
+└── .github/
+    └── workflows/
+        └── publish-oci.yml       # OCI artifact publishing
 ```
 
 ## Documentation
@@ -260,8 +171,6 @@ docker run --rm \
 | [Migration Guide](docs/MIGRATION.md) | Migrate from legacy bee scripts |
 | [Testing Guide](docs/TESTING.md) | Testing procedures and validation |
 | [CI/CD Pipeline](.github/CI-CD.md) | Pipeline architecture and usage |
-| [Service Audit](docs/AUDIT.md) | Complete service inventory |
-| [OCI Naming](docs/OCI_NAMING.md) | OCI artifact naming conventions |
 
 ## CI/CD
 
@@ -273,26 +182,22 @@ The repository includes GitHub Actions pipelines that:
 4. **Test** - Validates each service starts correctly
 5. **Publish** - Publishes OCI artifacts to GHCR on main branch
 
-See [.github/CI-CD.md](.github/CI-CD.md) for detailed documentation.
-
-## Notes
-
-- **Placeholder Values:** Examples use `example.com`, `bee` (username), and `Swordfish` (password)
-- **Traefik Version:** Uses Traefik v3 with Let's Encrypt DNS-01 challenge
-- **Restart Policy:** All containers use `restart: unless-stopped`
-- **Logging:** JSON logging with `max-size: 500k` and `max-file: 50`
-- **Docker Compose:** Files use `version: "3"` (optional but kept for compatibility)
-
 ## Contributing
 
 Pull requests are welcome! Please:
 
 1. Follow existing docker-compose patterns
 2. Include `.env.example` with placeholder values
-3. Use named volumes (no `./data/` bind mounts)
+3. Use named volumes (no bind mounts for OCI compatibility)
 4. Include native Docker healthcheck directives
-5. Run DCLint before submitting: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<service> -c /app/.dclintrc.yaml`
-6. Test locally with `docker compose --env-file .env.test up -d`
+5. Add a comprehensive README.md for your service
+6. Run DCLint before submitting
+
+## Notes
+
+- **Placeholder Values:** Examples use `example.com`, `bee` (username), and `Swordfish` (password)
+- **OCI artifacts are compose files**, not container images - they define how to deploy services
+- **Service READMEs** contain all configuration details - always check them before deploying
 
 ## License
 
