@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/release-it@19/schema/release-it.json",
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "requireCleanWorkingDir": true,
+    "requireBranch": "main",
+    "push": true,
+    "pushArgs": ["--follow-tags"]
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "draft": false,
+    "preRelease": false
+  },
+  "npm": {
+    "publish": false
+  },
+  "plugins": {
+    "release-it-calver-plugin": {
+      "format": "yy.mm.minor",
+      "increment": "calendar"
+    },
+    "@release-it/conventional-changelog": {
+      "ignoreRecommendedBump": true,
+      "preset": {
+        "name": "conventionalcommits",
+        "types": [
+          { "type": "feat", "section": "Features" },
+          { "type": "fix", "section": "Bug Fixes" },
+          { "type": "perf", "section": "Performance" },
+          { "type": "refactor", "section": "Refactoring" },
+          { "type": "docs", "section": "Documentation" },
+          { "type": "chore", "section": "Maintenance" },
+          { "type": "build", "section": "Build" },
+          { "type": "ci", "section": "CI/CD" },
+          { "type": "test", "section": "Tests" },
+          { "type": "style", "section": "Styling" }
+        ]
+      },
+      "infile": "CHANGELOG.md",
+      "header": "# Changelog\n\nAll notable changes to BeeCompose will be documented in this file.\n"
+    }
+  }
+}
