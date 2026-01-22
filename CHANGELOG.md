@@ -3,6 +3,20 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.4](https://github.com/beevelop/BeeCompose/compare/v26.1.3...v26.1.4) (2026-01-22)
+
+### Bug Fixes
+
+* **gitlab:** update port configuration to use new syntax for publishing ([d2ff27b](https://github.com/beevelop/BeeCompose/commit/d2ff27bb0d2a7fc49b37ca795c6b5b6d4a0ff5b9))
+
+### Maintenance
+
+* **license:** update license from Apache 2.0 to MIT and adjust README reference ([8c943b2](https://github.com/beevelop/BeeCompose/commit/8c943b208a0f0dba002d173c1a8f74fb09f8c587))
+
+### CI/CD
+
+* **publish-oci:** add crane installation and link package to repository ([654a768](https://github.com/beevelop/BeeCompose/commit/654a768c4684149d99d041971e1a1a813333ac8f))
+
 ## [26.1.3](https://github.com/beevelop/BeeCompose/compare/v26.1.2...v26.1.3) (2026-01-22)
 
 ### CI/CD
