@@ -3,6 +3,12 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.5](https://github.com/beevelop/BeeCompose/compare/v26.1.4...v26.1.5) (2026-01-22)
+
+### CI/CD
+
+* **publish-oci:** remove crane installation and update publish commands for non-interactive mode ([91c545a](https://github.com/beevelop/BeeCompose/commit/91c545ae924c19b7d92a7b2de3f51755418659bb))
+
 ## [26.1.4](https://github.com/beevelop/BeeCompose/compare/v26.1.3...v26.1.4) (2026-01-22)
 
 ### Bug Fixes
