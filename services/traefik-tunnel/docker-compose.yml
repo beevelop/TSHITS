@@ -21,7 +21,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_config:/etc/traefik:ro
-      - logs_data:/var/log/traefik
     # NO PORTS EXPOSED - Only accessible via Docker network
     # cloudflared connects to http://traefik:80 internally
     networks:
@@ -88,10 +87,8 @@ services:
         
         log:
           level: INFO
-          filePath: /var/log/traefik/traefik.log
         
-        accessLog:
-          filePath: /var/log/traefik/access.log
+        accessLog: {}
         EOFCONFIG
         
         echo ""
@@ -115,5 +112,3 @@ networks:
 volumes:
   traefik_config:
     name: ${COMPOSE_PROJECT_NAME:-traefik}_config
-  logs_data:
-    name: ${COMPOSE_PROJECT_NAME:-traefik}_logs_data
