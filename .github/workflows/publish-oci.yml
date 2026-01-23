@@ -5,7 +5,7 @@
 #   docker compose -f oci://ghcr.io/beevelop/<service>:<version> up -d
 #
 # Triggers:
-# - Push to main: Publishes changed services with 'latest' tag
+# - Push to main: Publishes ALL services with 'latest' tag (ensures consistency)
 # - Manual dispatch: Publish specific service with optional version override
 # - Release: Publishes all services with release tag (e.g., v1.0.0)
 
@@ -14,8 +14,6 @@ name: Publish OCI Artifacts
 on:
   push:
     branches: [main]
-    paths:
-      - 'services/**'
   release:
     types: [published]
   workflow_dispatch:
@@ -60,8 +58,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 2
 
       - name: Detect changed services
         id: detect
@@ -83,9 +79,11 @@ jobs:
             fi
           fi
           
-          # If release event, publish all services
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "Release trigger - publishing all services"
+          # For push to main or release: publish ALL services
+          # This ensures consistency - all OCI artifacts are always in sync with main
+          # Change detection via HEAD~1 is unreliable when multiple commits are pushed
+          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "release" ]]; then
+            echo "${{ github.event_name }} trigger - publishing all services"
             SERVICES=$(find services -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort | jq -R -s -c 'split("\n") | map(select(. != ""))')
             COUNT=$(echo "$SERVICES" | jq 'length')
             echo "services=$SERVICES" >> $GITHUB_OUTPUT
@@ -93,18 +91,9 @@ jobs:
             exit 0
           fi
           
-          # Detect changes from last commit
-          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | \
-            grep '^services/' | \
-            cut -d'/' -f2 | \
-            sort -u | \
-            jq -R -s -c 'split("\n") | map(select(. != ""))') || echo '[]'
-          
-          COUNT=$(echo "$CHANGED" | jq 'length')
-          
-          echo "Changed services: $CHANGED"
-          echo "services=$CHANGED" >> $GITHUB_OUTPUT
-          echo "service_count=$COUNT" >> $GITHUB_OUTPUT
+          # Fallback for other event types (shouldn't reach here normally)
+          echo "::error::Unexpected event type: ${{ github.event_name }}"
+          exit 1
 
   # ============================================================================
   # Job 2: Validate OCI Compatibility
