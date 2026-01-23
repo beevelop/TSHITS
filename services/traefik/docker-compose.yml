@@ -1,28 +1,41 @@
 name: traefik
-# Traefik v3 reverse proxy with Let's Encrypt (CloudFlare DNS-01)
+
+# Traefik v3 reverse proxy - supports both exposed and tunnel modes
+#
+# Modes (set via TRAEFIK_MODE environment variable):
+#   exposed  - Direct port exposure (80/443) with Let's Encrypt (default)
+#   tunnel   - Behind cloudflared tunnel, no public ports, TLS at Cloudflare edge
+#
+# Usage:
+#   docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env up -d
+
 services:
 
   traefik:
     image: traefik:${TRAEFIK_VERSION:-v3.6}
     container_name: traefik
+    depends_on:
+      traefik-init:
+        condition: service_completed_successfully
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_config:/etc/traefik:ro
-      - acme_data:/etc/traefik/acme
-      - logs_data:/etc/traefik/logs
-      - certs_data:/certs:ro
+      - acme_data:/acme
+      - logs_data:/var/log/traefik
     environment:
-      - CF_API_EMAIL=${CLOUDFLARE_EMAIL:-admin@example.com}
+      - CF_API_EMAIL=${CLOUDFLARE_EMAIL:-}
       - CF_API_KEY=${CLOUDFLARE_API_KEY:-}
     ports:
-      - "0.0.0.0:80:80"
-      - "0.0.0.0:443:443"
-      - "0.0.0.0:8080:8080"
+      # Exposed mode: 0.0.0.0 bindings for public access
+      # Tunnel mode: 127.0.0.1 bindings for cloudflared only
+      - "${TRAEFIK_BIND_IP:-0.0.0.0}:80:80"
+      - "${TRAEFIK_BIND_IP:-0.0.0.0}:443:443"
+      - "${TRAEFIK_DASHBOARD_BIND:-0.0.0.0}:8080:8080"
     networks:
       - default
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "traefik", "healthcheck", "--ping" ]
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -39,26 +52,74 @@ services:
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
       - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH:-admin:$$apr1$$changeme}"
+
   traefik-init:
     image: alpine:3.23
     container_name: traefik-init
     volumes:
       - traefik_config:/config
     environment:
+      - TRAEFIK_MODE=${TRAEFIK_MODE:-exposed}
       - TRAEFIK_EMAIL=${TRAEFIK_EMAIL:-${CLOUDFLARE_EMAIL:-admin@example.com}}
-      - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN:-traefik.example.com}
     command:
       - sh
       - -c
       - |
-        cat > /config/traefik.yml << 'EOFCONFIG'
+        set -e
+        
+        echo "=== Traefik Configuration Generator ==="
+        echo "Mode: $${TRAEFIK_MODE}"
+        
+        if [ "$${TRAEFIK_MODE}" = "tunnel" ]; then
+          echo "Generating tunnel-only configuration..."
+          cat > /config/traefik.yml << 'EOFCONFIG'
+        # Traefik v3 - Tunnel Mode
+        # TLS terminated at Cloudflare edge, no ACME needed
+        
         api:
           dashboard: true
           insecure: false
-
+        
         ping:
           entryPoint: traefik
-
+        
+        entryPoints:
+          # In tunnel mode, cloudflared sends HTTP to port 80
+          # Named 'websecure' so existing service labels work unchanged
+          websecure:
+            address: ":80"
+          traefik:
+            address: ":8080"
+        
+        # No ACME/Let's Encrypt - TLS at Cloudflare edge
+        # Service labels with tls.certresolver are safely ignored
+        
+        providers:
+          docker:
+            exposedByDefault: false
+            network: traefik_default
+        
+        log:
+          level: INFO
+          filePath: /var/log/traefik/traefik.log
+        
+        accessLog:
+          filePath: /var/log/traefik/access.log
+        EOFCONFIG
+        
+        else
+          echo "Generating exposed mode configuration..."
+          cat > /config/traefik.yml << EOFCONFIG
+        # Traefik v3 - Exposed Mode
+        # Direct port exposure with Let's Encrypt via CloudFlare DNS-01
+        
+        api:
+          dashboard: true
+          insecure: false
+        
+        ping:
+          entryPoint: traefik
+        
         entryPoints:
           web:
             address: ":80"
@@ -71,38 +132,41 @@ services:
             address: ":443"
           traefik:
             address: ":8080"
-
+        
         certificatesResolvers:
           letsencrypt:
             acme:
-              email: "${TRAEFIK_EMAIL}"
-              storage: /etc/traefik/acme/acme.json
+              email: "$${TRAEFIK_EMAIL}"
+              storage: /acme/acme.json
               dnsChallenge:
                 provider: cloudflare
                 delayBeforeCheck: 0
-
+        
         providers:
           docker:
             exposedByDefault: false
             network: traefik_default
-
+        
         log:
           level: INFO
-          filePath: /etc/traefik/logs/traefik.log
-
+          filePath: /var/log/traefik/traefik.log
+        
         accessLog:
-          filePath: /etc/traefik/logs/access.log
+          filePath: /var/log/traefik/access.log
         EOFCONFIG
-        echo "Traefik config generated successfully at /config/traefik.yml"
+        fi
+        
+        echo ""
+        echo "=== Generated Configuration ==="
         cat /config/traefik.yml
+        echo ""
+        echo "Configuration saved to /config/traefik.yml"
     restart: "no"
     logging:
       driver: "json-file"
       options:
         max-size: "500k"
         max-file: "50"
-    profiles:
-      - init
 
 networks:
   default:
@@ -116,5 +180,3 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-traefik}_acme_data
   logs_data:
     name: ${COMPOSE_PROJECT_NAME:-traefik}_logs_data
-  certs_data:
-    name: ${COMPOSE_PROJECT_NAME:-traefik}_certs_data

@@ -2,7 +2,7 @@
 
 > **OCI Artifact** - Deploy directly from GitHub Container Registry
 
-Cloud-native reverse proxy and load balancer with automatic HTTPS via Let's Encrypt and CloudFlare DNS-01 challenge.
+Cloud-native reverse proxy and load balancer with automatic HTTPS. Supports both direct port exposure with Let's Encrypt and Cloudflare Tunnel mode.
 
 ## What is an OCI Artifact?
 
@@ -10,10 +10,15 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Exposed Mode (Default)
+
+Direct port exposure with Let's Encrypt via CloudFlare DNS-01 challenge:
+
 ```bash
 # 1. Create environment file
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=traefik
+TRAEFIK_MODE=exposed
 TRAEFIK_DOMAIN=traefik.example.com
 TRAEFIK_EMAIL=admin@example.com
 TRAEFIK_AUTH=admin:$$apr1$$your_hashed_password
@@ -21,58 +26,89 @@ CLOUDFLARE_EMAIL=admin@example.com
 CLOUDFLARE_API_KEY=your_cloudflare_api_key
 EOF
 
-# 2. Generate config (run init profile first)
-docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env --profile init up traefik-init
-
-# 3. Deploy from GHCR
+# 2. Deploy from GHCR
 docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env up -d
 
-# 4. Check status
+# 3. Check status
 docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env ps
+```
+
+### Tunnel Mode
+
+Behind Cloudflare Tunnel - no public ports, TLS terminated at Cloudflare edge:
+
+```bash
+# 1. Deploy cloudflared first (see cloudflared service)
+docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d
+
+# 2. Create minimal environment file
+cat > .env << 'EOF'
+COMPOSE_PROJECT_NAME=traefik
+TRAEFIK_MODE=tunnel
+TRAEFIK_BIND_IP=127.0.0.1
+TRAEFIK_DASHBOARD_BIND=127.0.0.1
+EOF
+
+# 3. Deploy Traefik
+docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env up -d
 ```
 
 ## Prerequisites
 
 - Docker 25.0+ (required for OCI artifact support)
 - Docker Compose v2.24+
-- CloudFlare account with API access for DNS-01 challenge
-- Domain with DNS managed by CloudFlare
+- **Exposed mode:** CloudFlare account with API access for DNS-01 challenge
+- **Tunnel mode:** Cloudflared tunnel configured and running
 
 ## Architecture
 
 | Container | Image | Purpose |
 |-----------|-------|---------|
 | traefik | traefik:v3.6 | Reverse proxy and load balancer |
-| traefik-init | alpine:3.23 | Configuration generator (init profile) |
+| traefik-init | alpine:3.23 | Configuration generator (runs once) |
+
+## Modes
+
+| Mode | Description | Ports | TLS Provider |
+|------|-------------|-------|--------------|
+| `exposed` | Direct internet exposure | 80, 443, 8080 public | Let's Encrypt |
+| `tunnel` | Behind Cloudflare Tunnel | 80, 8080 localhost only | Cloudflare Edge |
 
 ## Environment Variables
 
-### Required (Standard Mode)
+### Mode Selection
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `CLOUDFLARE_EMAIL` | CloudFlare account email | `admin@example.com` |
-| `CLOUDFLARE_API_KEY` | CloudFlare Global API key | `your_api_key` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TRAEFIK_MODE` | `exposed` | Operating mode: `exposed` or `tunnel` |
 
-> **Note:** CloudFlare credentials are only required for standard mode (direct port exposure with Let's Encrypt).
-> In tunnel-only mode, TLS is terminated at Cloudflare edge, so no API credentials are needed.
+### Common Variables
 
-### Required (Tunnel-Only Mode)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COMPOSE_PROJECT_NAME` | `traefik` | Docker Compose project name |
+| `TRAEFIK_VERSION` | `v3.6` | Traefik image version |
+| `TRAEFIK_DOMAIN` | `traefik.example.com` | Domain for Traefik dashboard |
+| `TRAEFIK_AUTH` | `admin:$$apr1$$changeme` | Basic auth for dashboard (htpasswd format) |
 
-No CloudFlare API credentials needed! The only requirement is deploying [cloudflared](../cloudflared/).
+### Exposed Mode Only
 
-### Optional
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `CLOUDFLARE_EMAIL` | CloudFlare account email | Yes |
+| `CLOUDFLARE_API_KEY` | CloudFlare Global API key | Yes |
+| `TRAEFIK_EMAIL` | Email for Let's Encrypt notifications | No (uses CLOUDFLARE_EMAIL) |
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `COMPOSE_PROJECT_NAME` | Docker Compose project name | `traefik` |
-| `TRAEFIK_DOMAIN` | Domain for Traefik dashboard | `traefik.example.com` |
-| `TRAEFIK_EMAIL` | Email for Let's Encrypt notifications | Uses `CLOUDFLARE_EMAIL` |
-| `TRAEFIK_AUTH` | Basic auth for dashboard (htpasswd format) | `admin:$$apr1$$changeme` |
+### Network Binding (Optional)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TRAEFIK_BIND_IP` | `0.0.0.0` | IP to bind ports 80/443 |
+| `TRAEFIK_DASHBOARD_BIND` | `0.0.0.0` | IP to bind dashboard port 8080 |
+
+For tunnel mode, set both to `127.0.0.1` to ensure only cloudflared can reach Traefik.
 
 ### Generating Dashboard Credentials
-
-Generate `TRAEFIK_AUTH` credentials using htpasswd:
 
 ```bash
 # Using htpasswd (install: apt install apache2-utils)
@@ -85,107 +121,42 @@ docker run --rm httpd:alpine htpasswd -nb admin your_password | sed 's/\$/\$\$/g
 # admin:$$apr1$$xyz123$$abcdefghijklmnop
 ```
 
-The `sed` command doubles the `$` signs, which is required for docker-compose variable escaping.
-
 ## Volumes
 
 | Volume | Purpose |
 |--------|---------|
 | `traefik_config` | Traefik configuration files |
-| `traefik_acme_data` | Let's Encrypt certificates |
+| `traefik_acme_data` | Let's Encrypt certificates (exposed mode) |
 | `traefik_logs_data` | Access and error logs |
-| `traefik_certs_data` | Custom certificates |
 
 ## Ports
 
-| Port | Protocol | Purpose |
-|------|----------|---------|
-| 80 | TCP | HTTP (redirects to HTTPS) |
-| 443 | TCP | HTTPS |
-| 8080 | TCP | Traefik dashboard |
+| Port | Exposed Mode | Tunnel Mode |
+|------|--------------|-------------|
+| 80 | Public (HTTP→HTTPS redirect) | localhost (websecure entrypoint) |
+| 443 | Public (HTTPS) | Not used |
+| 8080 | Public (Dashboard) | localhost (Dashboard) |
 
-## Post-Deployment
+## How It Works
 
-1. **Generate htpasswd credentials** for dashboard access:
-   ```bash
-   htpasswd -nb admin your_password | sed -e s/\\$/\\$\\$/g
-   ```
-
-2. **Access the dashboard** at `https://traefik.example.com/dashboard/`
-
-3. **Verify HTTPS** is working by checking certificate status in the dashboard
-
-4. **Create the external network** if not already present:
-   ```bash
-   docker network create traefik_default
-   ```
-
-### Configuration
-
-The init container generates `traefik.yml` with:
-- HTTP to HTTPS redirect
-- Let's Encrypt with CloudFlare DNS-01 challenge
-- Docker provider (auto-discovery)
-- Access logging enabled
-
-## Tunnel-Only Mode (Cloudflare Tunnel)
-
-For enhanced security, run Traefik behind a Cloudflare Tunnel. This removes direct internet exposure and eliminates the need for CloudFlare API credentials.
-
-### Benefits
-
-- **No public ports** - Ports 80/443 not exposed to internet
-- **No CloudFlare API keys** - TLS terminated at Cloudflare edge
-- **Zero-trust access** - Control access via Cloudflare Access policies
-- **DDoS protection** - Cloudflare absorbs attacks at edge
-- **Existing labels work** - No changes to service configurations
-
-### Architecture
-
+### Exposed Mode
 ```
-Internet -> Cloudflare Edge (TLS) -> cloudflared -> Traefik (HTTP) -> Services
-                                         |
-                                (no public ports exposed)
+Internet → Port 80/443 → Traefik → Services
+                ↓
+         Let's Encrypt (CloudFlare DNS-01)
 ```
 
-### Setup
-
-```bash
-# 1. Deploy cloudflared first (see ../cloudflared/)
-docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d
-
-# 2. Generate tunnel-only config
-docker compose -f docker-compose.yml -f docker-compose.tunnel.yml \
-  --profile init up traefik-init
-
-# 3. Deploy Traefik in tunnel-only mode
-docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+### Tunnel Mode
+```
+Internet → Cloudflare Edge (TLS) → cloudflared → Traefik:80 → Services
+                                        ↓
+                               (localhost only, no public ports)
 ```
 
-### Minimal Environment File (Tunnel-Only)
-
-```bash
-cat > .env << 'EOF'
-COMPOSE_PROJECT_NAME=traefik
-EOF
-```
-
-That's it! No CloudFlare API credentials, no domain configuration, no htpasswd auth needed for basic setup.
-
-### What Changes
-
-| Mode | Port 80 | Port 443 | Port 8080 |
-|------|---------|----------|-----------|
-| **Standard** | Public | Public | Public |
-| **Tunnel-only** | Not exposed | Not exposed | localhost only |
-
-In tunnel-only mode:
-- All public traffic flows through Cloudflare Tunnel
-- Dashboard accessible only at `127.0.0.1:8080` for local debugging
-- Cloudflare Access policies control who can reach services
-- DDoS protection and WAF provided by Cloudflare
-
-See [cloudflared README](../cloudflared/README.md) for complete setup instructions.
+In tunnel mode:
+- The `websecure` entrypoint listens on port 80 (HTTP from cloudflared)
+- Existing service labels (`entrypoints=websecure`, `tls=true`) work unchanged
+- TLS labels are safely ignored since Cloudflare handles TLS
 
 ## Common Operations
 
@@ -204,30 +175,32 @@ dc down
 
 # Update
 dc pull && dc up -d
-
-# Regenerate config
-dc --profile init up traefik-init
-
-# Deploy in tunnel-only mode
-dc -f docker-compose.yml -f docker-compose.tunnel.yml up -d
 ```
 
 ## Troubleshooting
 
-### Certificate not issuing
-Check CloudFlare API credentials and ensure the domain's DNS is managed by CloudFlare. View ACME logs:
+### Mount Error: read-only file system
+
+If you see an error about mounting to a read-only file system, ensure you're using the latest version which mounts ACME data to `/acme` instead of `/etc/traefik/acme`.
+
+### Certificate not issuing (Exposed Mode)
+
+Check CloudFlare API credentials and ensure the domain's DNS is managed by CloudFlare:
 ```bash
 dc logs traefik | grep -i acme
 ```
 
 ### Dashboard 401 Unauthorized
+
 Verify `TRAEFIK_AUTH` is properly escaped (double `$$` in compose files) and matches htpasswd format.
 
 ### Services not discovered
+
 Ensure services have `traefik.enable=true` label and are connected to `traefik_default` network.
 
-### Container not healthy
-Check logs with `dc logs traefik` and ensure all required environment variables are set.
+### Tunnel mode: cloudflared can't reach Traefik
+
+Ensure both are on the same Docker network and cloudflared is configured to route to `http://traefik:80`.
 
 ## Links
 
