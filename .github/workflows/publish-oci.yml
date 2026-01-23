@@ -5,9 +5,9 @@
 #   docker compose -f oci://ghcr.io/beevelop/<service>:<version> up -d
 #
 # Triggers:
-# - Push to main: Publishes changed services with version from .env + latest tag
+# - Push to main: Publishes changed services with 'latest' tag
 # - Manual dispatch: Publish specific service with optional version override
-# - Release: Publishes all services with release tag
+# - Release: Publishes all services with release tag (e.g., v1.0.0)
 
 name: Publish OCI Artifacts
 
@@ -159,25 +159,6 @@ jobs:
           
           echo "✓ No bind mounts (OCI compatible)"
 
-      - name: Extract version
-        id: version
-        working-directory: services/${{ matrix.service }}
-        run: |
-          # Read first *_VERSION variable from .env
-          VERSION=$(grep -E '_VERSION=' .env 2>/dev/null | head -1 | cut -d'=' -f2 || echo "latest")
-          VERSION="${VERSION:-latest}"
-          
-          # Override if provided
-          if [[ -n "${{ inputs.version_override }}" ]]; then
-            VERSION="${{ inputs.version_override }}"
-          fi
-          
-          # Normalize: add 'v' prefix if starts with number
-          [[ "$VERSION" =~ ^[0-9] ]] && VERSION="v$VERSION"
-          
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
   # ============================================================================
   # Job 3: Publish OCI Artifacts
   # ============================================================================
@@ -204,26 +185,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version
+      - name: Determine version
         id: version
-        working-directory: services/${{ matrix.service }}
         run: |
-          # Read first *_VERSION variable from .env
-          VERSION=$(grep -E '_VERSION=' .env 2>/dev/null | head -1 | cut -d'=' -f2 || echo "latest")
-          VERSION="${VERSION:-latest}"
+          # Version priority:
+          # 1. Release event: use git tag
+          # 2. Manual dispatch with override: use provided version
+          # 3. Push to main: use 'latest'
           
-          # Override if provided
-          if [[ -n "${{ inputs.version_override }}" ]]; then
-            VERSION="${{ inputs.version_override }}"
-          fi
-          
-          # Use release tag if this is a release event
           if [[ "${{ github.event_name }}" == "release" ]]; then
             VERSION="${{ github.event.release.tag_name }}"
+          elif [[ -n "${{ inputs.version_override }}" ]]; then
+            VERSION="${{ inputs.version_override }}"
+            # Normalize: add 'v' prefix if starts with number
+            [[ "$VERSION" =~ ^[0-9] ]] && VERSION="v$VERSION"
+          else
+            VERSION="latest"
           fi
-          
-          # Normalize: add 'v' prefix if starts with number
-          [[ "$VERSION" =~ ^[0-9] ]] && VERSION="v$VERSION"
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Publishing version: $VERSION"
@@ -236,15 +214,15 @@ jobs:
           
           echo "=== Publishing ${IMAGE}:${VERSION} ==="
           
-          # Publish versioned tag
+          # Publish the determined version tag
           # --with-env includes environment variables with defaults in the OCI artifact
           # -y auto-confirms prompts in non-interactive CI environment
           # Using 'yes |' to pipe 'y' responses for bind mount prompts (workaround for docker/compose#13148)
           yes | docker compose publish --with-env -y "${IMAGE}:${VERSION}"
           echo "✓ Published ${IMAGE}:${VERSION}"
           
-          # Publish latest tag (only on main branch or release)
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "release" ]]; then
+          # On release, also publish 'latest' tag alongside the version tag
+          if [[ "${{ github.event_name }}" == "release" ]]; then
             yes | docker compose publish --with-env -y "${IMAGE}:latest"
             echo "✓ Published ${IMAGE}:latest"
           fi
@@ -265,7 +243,7 @@ jobs:
           
           **Deploy with:**
           \`\`\`bash
-          docker compose -f oci://${IMAGE}:${VERSION} --env-file .env up -d
+          docker compose -f oci://${IMAGE}:${VERSION} up -d
           \`\`\`
           EOF
 
