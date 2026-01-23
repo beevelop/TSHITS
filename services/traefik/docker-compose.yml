@@ -19,7 +19,7 @@ services:
       - "0.0.0.0:443:443"
       - "0.0.0.0:8080:8080"
     networks:
-      - traefik
+      - default
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "traefik", "healthcheck", "--ping" ]
@@ -105,7 +105,7 @@ services:
       - init
 
 networks:
-  traefik:
+  default:
     name: traefik_default
     driver: bridge
 
