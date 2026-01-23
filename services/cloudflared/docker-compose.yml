@@ -8,10 +8,10 @@ services:
       - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
     networks:
       - traefik
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate --metrics 127.0.0.1:20241 run
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "cloudflared", "tunnel", "info"]
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
       interval: 30s
       timeout: 10s
       retries: 3
