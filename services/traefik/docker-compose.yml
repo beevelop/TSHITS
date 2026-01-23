@@ -26,11 +26,18 @@ services:
       - CF_API_EMAIL=${CLOUDFLARE_EMAIL:-}
       - CF_API_KEY=${CLOUDFLARE_API_KEY:-}
     ports:
-      # Exposed mode: 0.0.0.0 bindings for public access
-      # Tunnel mode: 127.0.0.1 bindings for cloudflared only
-      - "${TRAEFIK_BIND_IP:-0.0.0.0}:80:80"
-      - "${TRAEFIK_BIND_IP:-0.0.0.0}:443:443"
-      - "${TRAEFIK_DASHBOARD_BIND:-0.0.0.0}:8080:8080"
+      - target: 80
+        published: ${TRAEFIK_HTTP_PORT:-80}
+        protocol: tcp
+        host_ip: ${TRAEFIK_BIND_IP:-0.0.0.0}
+      - target: 443
+        published: ${TRAEFIK_HTTPS_PORT:-443}
+        protocol: tcp
+        host_ip: ${TRAEFIK_BIND_IP:-0.0.0.0}
+      - target: 8080
+        published: ${TRAEFIK_DASHBOARD_PORT:-8080}
+        protocol: tcp
+        host_ip: ${TRAEFIK_DASHBOARD_BIND:-0.0.0.0}
     networks:
       - default
     restart: unless-stopped

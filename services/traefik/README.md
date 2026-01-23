@@ -35,13 +35,13 @@ docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env ps
 
 ### Tunnel Mode
 
-Behind Cloudflare Tunnel - no public ports, TLS terminated at Cloudflare edge:
+Behind Cloudflare Tunnel - TLS terminated at Cloudflare edge:
 
 ```bash
 # 1. Deploy cloudflared first (see cloudflared service)
 docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d
 
-# 2. Create minimal environment file
+# 2. Create environment file
 cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=traefik
 TRAEFIK_MODE=tunnel
@@ -91,6 +91,18 @@ docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env up -d
 | `TRAEFIK_DOMAIN` | `traefik.example.com` | Domain for Traefik dashboard |
 | `TRAEFIK_AUTH` | `admin:$$apr1$$changeme` | Basic auth for dashboard (htpasswd format) |
 
+### Port Configuration (Optional)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TRAEFIK_HTTP_PORT` | `80` | HTTP port |
+| `TRAEFIK_HTTPS_PORT` | `443` | HTTPS port |
+| `TRAEFIK_DASHBOARD_PORT` | `8080` | Dashboard port |
+| `TRAEFIK_BIND_IP` | `0.0.0.0` | Bind IP for HTTP/HTTPS ports |
+| `TRAEFIK_DASHBOARD_BIND` | `0.0.0.0` | Bind IP for dashboard port |
+
+For tunnel mode, set bind IPs to `127.0.0.1` to ensure only cloudflared can reach Traefik.
+
 ### Exposed Mode Only
 
 | Variable | Description | Required |
@@ -131,11 +143,11 @@ docker run --rm httpd:alpine htpasswd -nb admin your_password | sed 's/\$/\$\$/g
 
 ## Ports
 
-| Port | Exposed Mode | Tunnel Mode |
-|------|--------------|-------------|
-| 80 | Public (HTTP→HTTPS redirect) | localhost (websecure entrypoint) |
-| 443 | Public (HTTPS) | Not used |
-| 8080 | Public (Dashboard) | localhost (Dashboard) |
+| Port | Purpose |
+|------|---------|
+| 80 | HTTP (redirects to HTTPS in exposed mode, websecure entrypoint in tunnel mode) |
+| 443 | HTTPS (exposed mode only, unused in tunnel mode) |
+| 8080 | Traefik dashboard |
 
 ## How It Works
 
