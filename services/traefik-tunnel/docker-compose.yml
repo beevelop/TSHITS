@@ -1,12 +1,14 @@
 name: traefik
 
-# Traefik v3 reverse proxy with Let's Encrypt (CloudFlare DNS-01)
+# Traefik v3 reverse proxy - Tunnel Mode (Cloudflare Tunnel)
 #
-# This is the exposed mode configuration with public ports 80/443.
-# For Cloudflare Tunnel deployments, use traefik-tunnel instead.
+# This is a dedicated tunnel-only configuration with NO exposed ports.
+# All traffic flows through Cloudflare Tunnel via cloudflared.
+#
+# Traffic flow: Internet -> Cloudflare Edge (TLS) -> cloudflared -> traefik:80 -> Services
 #
 # Usage:
-#   docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env up -d
+#   docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env up -d
 
 services:
 
@@ -19,24 +21,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_config:/etc/traefik:ro
-      - acme_data:/acme
       - logs_data:/var/log/traefik
-    environment:
-      - CF_API_EMAIL=${CLOUDFLARE_EMAIL:-}
-      - CF_API_KEY=${CLOUDFLARE_API_KEY:-}
-    ports:
-      - target: 80
-        published: ${TRAEFIK_HTTP_PORT:-80}
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 443
-        published: ${TRAEFIK_HTTPS_PORT:-443}
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 8080
-        published: ${TRAEFIK_DASHBOARD_PORT:-8080}
-        protocol: tcp
-        host_ip: 0.0.0.0
+    # NO PORTS EXPOSED - Only accessible via Docker network
+    # cloudflared connects to http://traefik:80 internally
     networks:
       - default
     restart: unless-stopped
@@ -54,7 +41,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN:-traefik.example.com}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
-      - "traefik.http.routers.dashboard.entrypoints=traefik"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
       - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH:-admin:$$apr1$$changeme}"
@@ -64,49 +51,35 @@ services:
     container_name: traefik-init
     volumes:
       - traefik_config:/config
-    environment:
-      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL:-${CLOUDFLARE_EMAIL:-admin@example.com}}
     command:
       - sh
       - -c
       - |
         set -e
         
-        echo "=== Traefik Exposed Mode Configuration ==="
-        echo "Generating configuration with Let's Encrypt (CloudFlare DNS-01)..."
+        echo "=== Traefik Tunnel Mode Configuration ==="
+        echo "Generating configuration for Cloudflare Tunnel..."
         
-        cat > /config/traefik.yml << EOFCONFIG
-        # Traefik v3 - Exposed Mode
-        # Direct port exposure with Let's Encrypt via CloudFlare DNS-01
+        cat > /config/traefik.yml << 'EOFCONFIG'
+        # Traefik v3 - Tunnel Mode
+        # TLS terminated at Cloudflare edge, no ACME needed
+        # cloudflared sends HTTP traffic to port 80
         
         api:
           dashboard: true
           insecure: false
         
         ping:
-          entryPoint: traefik
+          entryPoint: websecure
         
         entryPoints:
-          web:
-            address: ":80"
-            http:
-              redirections:
-                entryPoint:
-                  to: websecure
-                  scheme: https
+          # In tunnel mode, cloudflared sends HTTP to port 80
+          # Named 'websecure' so existing service labels work unchanged
           websecure:
-            address: ":443"
-          traefik:
-            address: ":8080"
+            address: ":80"
         
-        certificatesResolvers:
-          letsencrypt:
-            acme:
-              email: "$${TRAEFIK_EMAIL}"
-              storage: /acme/acme.json
-              dnsChallenge:
-                provider: cloudflare
-                delayBeforeCheck: 0
+        # No ACME/Let's Encrypt - TLS at Cloudflare edge
+        # Service labels with tls.certresolver are safely ignored
         
         providers:
           docker:
@@ -125,7 +98,8 @@ services:
         echo "=== Generated Configuration ==="
         cat /config/traefik.yml
         echo ""
-        echo "Configuration saved to /config/traefik.yml"
+        echo "Configuration saved. Traefik will listen on port 80 (internal only)."
+        echo "Connect cloudflared to: http://traefik:80"
     restart: "no"
     logging:
       driver: "json-file"
@@ -141,7 +115,5 @@ networks:
 volumes:
   traefik_config:
     name: ${COMPOSE_PROJECT_NAME:-traefik}_config
-  acme_data:
-    name: ${COMPOSE_PROJECT_NAME:-traefik}_acme_data
   logs_data:
     name: ${COMPOSE_PROJECT_NAME:-traefik}_logs_data
