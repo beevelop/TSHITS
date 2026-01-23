@@ -42,6 +42,7 @@ Click on a service name to view its detailed README with configuration options, 
 | [sonarqube](services/sonarqube/README.md) | Code quality inspection | `ghcr.io/beevelop/sonarqube` |
 | [statping](services/statping/README.md) | Status page and uptime monitoring | `ghcr.io/beevelop/statping` |
 | [traefik](services/traefik/README.md) | Reverse proxy with automatic HTTPS | `ghcr.io/beevelop/traefik` |
+| [traefik-tunnel](services/traefik-tunnel/README.md) | Traefik for Cloudflare Tunnel (no exposed ports) | `ghcr.io/beevelop/traefik-tunnel` |
 | [tus](services/tus/README.md) | Resumable file upload server | `ghcr.io/beevelop/tus` |
 | [weblate](services/weblate/README.md) | Continuous localization platform | `ghcr.io/beevelop/weblate` |
 | [zabbix](services/zabbix/README.md) | Enterprise monitoring solution | `ghcr.io/beevelop/zabbix` |
@@ -143,15 +144,57 @@ docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik 
 docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d
 ```
 
-### Cloudflare Tunnel (Zero-Trust Mode)
+### Networking Modes
 
-For enhanced security, deploy services behind Cloudflare Tunnel to avoid exposing ports to the public internet:
+BeeCompose supports two networking modes for Traefik. Choose based on your security requirements and infrastructure setup.
+
+#### Traefik Exposed Mode (Direct Internet Access)
+
+Standard deployment with ports directly exposed to the internet. Traefik handles TLS termination using Let's Encrypt certificates via CloudFlare DNS-01 challenge.
+
+```
+Internet -> Traefik:443 (TLS) -> Services
+                |
+        Let's Encrypt certificates
+```
+
+| Aspect | Details |
+|--------|---------|
+| Ports exposed | 80, 443, 8080 |
+| TLS provider | Let's Encrypt (ACME DNS-01) |
+| Requires | CloudFlare API credentials |
+| Best for | Direct server access, traditional hosting |
 
 ```bash
-# 1. Deploy Traefik in tunnel-only mode (no public ports)
-docker compose -f oci://ghcr.io/beevelop/traefik:latest \
-  -f oci://ghcr.io/beevelop/traefik-tunnel:latest \
-  --env-file .env.traefik up -d
+# Deploy Traefik (exposed mode)
+docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik up -d
+
+# Deploy services
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d
+```
+
+See [traefik README](services/traefik/README.md) for configuration details.
+
+#### Traefik Tunnel Mode (Zero-Trust via Cloudflare)
+
+Security-hardened deployment with zero public port exposure. All traffic flows through Cloudflare Tunnel, with TLS terminated at Cloudflare's edge network.
+
+```
+Internet -> Cloudflare Edge (TLS) -> cloudflared -> traefik:80 -> Services
+                                          |
+                              (Docker internal network only)
+```
+
+| Aspect | Details |
+|--------|---------|
+| Ports exposed | **None** |
+| TLS provider | Cloudflare Edge |
+| Requires | Cloudflare Tunnel token |
+| Best for | Zero-trust security, hiding origin IP, NAT/firewall environments |
+
+```bash
+# 1. Deploy Traefik (tunnel mode - no exposed ports)
+docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env.traefik up -d
 
 # 2. Deploy cloudflared (configure tunnel token in .env)
 docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d
@@ -160,9 +203,20 @@ docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.clou
 docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d
 ```
 
-Traffic flows: `Internet → Cloudflare Edge → cloudflared → Traefik → Services`
+See [traefik-tunnel README](services/traefik-tunnel/README.md) and [cloudflared README](services/cloudflared/README.md) for setup instructions.
 
-See [cloudflared README](services/cloudflared/README.md) for complete setup instructions.
+#### Mode Comparison
+
+| Feature | Exposed Mode | Tunnel Mode |
+|---------|--------------|-------------|
+| Host ports | 80, 443, 8080 | None |
+| TLS certificates | Let's Encrypt (auto-managed) | Cloudflare Edge (no management) |
+| Origin IP visible | Yes | No (hidden behind Cloudflare) |
+| CloudFlare API required | Yes | No |
+| Tunnel token required | No | Yes |
+| Service labels | Identical | Identical |
+
+**Important:** Service labels work unchanged in both modes. Do not include `tls=true` or `tls.certresolver` in service labels - TLS is configured at the Traefik entrypoint level.
 
 ## Project Structure
 
