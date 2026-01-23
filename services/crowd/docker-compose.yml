@@ -31,8 +31,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.crowd.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.crowd.entrypoints=websecure"
-      - "traefik.http.routers.crowd.tls=true"
-      - "traefik.http.routers.crowd.tls.certresolver=letsencrypt"
       - "traefik.http.services.crowd.loadbalancer.server.port=8095"
       - "traefik.docker.network=traefik_default"
 

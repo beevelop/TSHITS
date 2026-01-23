@@ -29,8 +29,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.registry.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.registry.entrypoints=websecure"
-      - "traefik.http.routers.registry.tls=true"
-      - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
       - "traefik.http.services.registry.loadbalancer.server.port=5000"
       - "traefik.docker.network=traefik_default"
 

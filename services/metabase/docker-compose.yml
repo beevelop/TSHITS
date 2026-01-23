@@ -25,7 +25,7 @@ services:
         max-file: "50"
 
   metabase:
-    image: metabase/metabase:${METABASE_VERSION:-latest}
+    image: metabase/metabase:${METABASE_VERSION:-v0.58.3.1}
     container_name: metabase
     depends_on:
       - database
@@ -56,8 +56,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.metabase.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.metabase.entrypoints=websecure"
-      - "traefik.http.routers.metabase.tls=true"
-      - "traefik.http.routers.metabase.tls.certresolver=letsencrypt"
       - "traefik.http.services.metabase.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_default"
 

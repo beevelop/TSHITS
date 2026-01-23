@@ -84,8 +84,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.graylog.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.graylog.entrypoints=websecure"
-      - "traefik.http.routers.graylog.tls=true"
-      - "traefik.http.routers.graylog.tls.certresolver=letsencrypt"
       - "traefik.http.services.graylog.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_default"
 

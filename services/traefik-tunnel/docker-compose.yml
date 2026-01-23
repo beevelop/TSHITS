@@ -78,7 +78,7 @@ services:
             address: ":80"
         
         # No ACME/Let's Encrypt - TLS at Cloudflare edge
-        # Service labels with tls.certresolver are safely ignored
+        # Service labels are identical to exposed mode (no tls labels needed)
         
         providers:
           docker:

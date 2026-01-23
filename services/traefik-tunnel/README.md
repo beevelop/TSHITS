@@ -88,18 +88,21 @@ In Zero Trust Dashboard (https://one.dash.cloudflare.com) → Networks → Tunne
 
 ## Service Labels
 
-Existing Traefik labels work unchanged. The `websecure` entrypoint maps to port 80 internally:
+Service labels are identical for both traefik modes. TLS is handled at the entrypoint level:
+
+- **Exposed mode:** Let's Encrypt via `certResolver: letsencrypt` at entrypoint
+- **Tunnel mode:** No TLS (Cloudflare Edge handles it)
 
 ```yaml
 labels:
   - "traefik.enable=true"
   - "traefik.http.routers.myapp.rule=Host(`app.example.com`)"
   - "traefik.http.routers.myapp.entrypoints=websecure"
-  - "traefik.http.routers.myapp.tls=true"  # Safely ignored
-  - "traefik.http.routers.myapp.tls.certresolver=letsencrypt"  # Safely ignored
   - "traefik.http.services.myapp.loadbalancer.server.port=8080"
   - "traefik.docker.network=traefik_default"
 ```
+
+> **Note:** Do NOT include `tls=true` or `tls.certresolver` labels. TLS configuration is managed at the Traefik entrypoint level, ensuring services work in both exposed and tunnel modes without modification.
 
 ## Common Operations
 

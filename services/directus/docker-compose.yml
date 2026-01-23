@@ -37,8 +37,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.directus.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.directus.entrypoints=websecure"
-      - "traefik.http.routers.directus.tls=true"
-      - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
       - "traefik.http.services.directus.loadbalancer.server.port=8055"
       - "traefik.docker.network=traefik_default"
 

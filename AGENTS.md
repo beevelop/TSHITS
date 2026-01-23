@@ -232,8 +232,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.<service>.rule=Host(`${SERVICE_DOMAIN}`)"
       - "traefik.http.routers.<service>.entrypoints=websecure"
-      - "traefik.http.routers.<service>.tls=true"
-      - "traefik.http.routers.<service>.tls.certresolver=letsencrypt"
       - "traefik.http.services.<service>.loadbalancer.server.port=<port>"
       - "traefik.docker.network=traefik_default"
 
@@ -243,6 +241,8 @@ networks:
     external:
       name: traefik_default
 ```
+
+> **TLS Note:** Do NOT include `tls=true` or `tls.certresolver` labels. TLS is configured at the Traefik entrypoint level, enabling services to work in both exposed (Let's Encrypt) and tunnel (Cloudflare) modes without modification.
 
 ### Service Key Order Reference
 
@@ -290,19 +290,19 @@ SECRET_KEY=your_secret_here
 
 ### Traefik v3 Labels Reference
 
-All services use Traefik v3 label syntax for routing configuration:
+All services use Traefik v3 label syntax for routing configuration. TLS is handled at the entrypoint level, NOT in service labels:
 
 | Label | Purpose |
 |-------|---------|
 | `traefik.enable=true` | Enable Traefik for this container |
 | `traefik.http.routers.<name>.rule=Host(\`domain\`)` | Route by hostname (use backticks!) |
 | `traefik.http.routers.<name>.entrypoints=websecure` | Use HTTPS entrypoint |
-| `traefik.http.routers.<name>.tls=true` | Enable TLS |
-| `traefik.http.routers.<name>.tls.certresolver=letsencrypt` | Use Let's Encrypt resolver |
 | `traefik.http.services.<name>.loadbalancer.server.port=<port>` | Container port to route to |
 | `traefik.docker.network=traefik_default` | Docker network for routing |
 
-**Important:** The `<name>` in router/service labels should match the service/container name for consistency.
+**Important:** 
+- The `<name>` in router/service labels should match the service/container name for consistency
+- Do NOT use `tls=true` or `tls.certresolver` labels - TLS is configured at the Traefik entrypoint level to support both exposed (Let's Encrypt) and tunnel (Cloudflare) modes
 
 ---
 

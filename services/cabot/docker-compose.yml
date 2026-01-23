@@ -100,8 +100,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.cabot.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.cabot.entrypoints=websecure"
-      - "traefik.http.routers.cabot.tls=true"
-      - "traefik.http.routers.cabot.tls.certresolver=letsencrypt"
       - "traefik.http.services.cabot.loadbalancer.server.port=5000"
       - "traefik.docker.network=traefik_default"
 

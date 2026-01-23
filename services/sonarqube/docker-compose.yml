@@ -56,8 +56,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarqube.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.sonarqube.entrypoints=websecure"
-      - "traefik.http.routers.sonarqube.tls=true"
-      - "traefik.http.routers.sonarqube.tls.certresolver=letsencrypt"
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_default"
 

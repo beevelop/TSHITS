@@ -38,8 +38,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.jira.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.jira.entrypoints=websecure"
-      - "traefik.http.routers.jira.tls=true"
-      - "traefik.http.routers.jira.tls.certresolver=letsencrypt"
       - "traefik.http.services.jira.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik_default"
 

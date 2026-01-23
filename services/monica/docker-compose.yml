@@ -31,8 +31,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.monica.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.monica.entrypoints=websecure"
-      - "traefik.http.routers.monica.tls=true"
-      - "traefik.http.routers.monica.tls.certresolver=letsencrypt"
       - "traefik.http.services.monica.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_default"
 

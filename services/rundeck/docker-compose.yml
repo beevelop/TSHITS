@@ -34,8 +34,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.rundeck.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.rundeck.entrypoints=websecure"
-      - "traefik.http.routers.rundeck.tls=true"
-      - "traefik.http.routers.rundeck.tls.certresolver=letsencrypt"
       - "traefik.http.services.rundeck.loadbalancer.server.port=4440"
       - "traefik.docker.network=traefik_default"
 

@@ -88,8 +88,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.zabbix.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.zabbix.entrypoints=websecure"
-      - "traefik.http.routers.zabbix.tls=true"
-      - "traefik.http.routers.zabbix.tls.certresolver=letsencrypt"
       - "traefik.http.services.zabbix.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik_default"
 

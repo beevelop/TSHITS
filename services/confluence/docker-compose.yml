@@ -39,8 +39,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.confluence.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.confluence.entrypoints=websecure"
-      - "traefik.http.routers.confluence.tls=true"
-      - "traefik.http.routers.confluence.tls.certresolver=letsencrypt"
       - "traefik.http.services.confluence.loadbalancer.server.port=8090"
       - "traefik.docker.network=traefik_default"
 

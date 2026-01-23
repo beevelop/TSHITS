@@ -131,8 +131,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sentry.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.sentry.entrypoints=websecure"
-      - "traefik.http.routers.sentry.tls=true"
-      - "traefik.http.routers.sentry.tls.certresolver=letsencrypt"
       - "traefik.http.services.sentry.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_default"
 

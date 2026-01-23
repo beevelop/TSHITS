@@ -34,8 +34,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.bitwarden.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.bitwarden.entrypoints=websecure"
-      - "traefik.http.routers.bitwarden.tls=true"
-      - "traefik.http.routers.bitwarden.tls.certresolver=letsencrypt"
       - "traefik.http.services.bitwarden.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_default"
 

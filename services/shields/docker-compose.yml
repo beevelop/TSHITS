@@ -48,8 +48,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.shields.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.shields.entrypoints=websecure"
-      - "traefik.http.routers.shields.tls=true"
-      - "traefik.http.routers.shields.tls.certresolver=letsencrypt"
       - "traefik.http.services.shields.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_default"
 

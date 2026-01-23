@@ -96,6 +96,9 @@ services:
                   scheme: https
           websecure:
             address: ":443"
+            http:
+              tls:
+                certResolver: letsencrypt
           traefik:
             address: ":8080"
         

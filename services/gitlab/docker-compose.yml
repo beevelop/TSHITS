@@ -112,8 +112,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.gitlab.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.gitlab.entrypoints=websecure"
-      - "traefik.http.routers.gitlab.tls=true"
-      - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"
       - "traefik.http.services.gitlab.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_default"
 

@@ -33,8 +33,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.huginn.rule=Host(`${SERVICE_DOMAIN:-example.com}`)"
       - "traefik.http.routers.huginn.entrypoints=websecure"
-      - "traefik.http.routers.huginn.tls=true"
-      - "traefik.http.routers.huginn.tls.certresolver=letsencrypt"
       - "traefik.http.services.huginn.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_default"
 
