@@ -830,7 +830,10 @@ jobs:
           docker network create "$TRAEFIK_NETWORK" > /dev/null 2>&1 || true
           
           # Also create the standard traefik_default network (some services expect it)
-          docker network create traefik_default > /dev/null 2>&1 || true
+          # Skip for traefik/traefik-tunnel services - they create their own network
+          if [[ "$SERVICE" != "traefik" && "$SERVICE" != "traefik-tunnel" ]]; then
+            docker network create traefik_default > /dev/null 2>&1 || true
+          fi
           
           # Step 1: Pull images (quiet mode, suppress progress)
           echo "Pulling images..."
