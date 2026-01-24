@@ -33,7 +33,8 @@ AI agent operating manual for BeeCompose. **Read completely before any action.**
 - Connect services to Traefik via external network `traefik_default`
 - Use environment variable substitution (`${VAR}`) in compose files
 - Place service-specific configs in the service directory
-- Keep `.env` for version tags, `.env.<environ>` for environment-specific secrets
+- Embed version tags as default values directly in docker-compose.yml (e.g., `image: nginx:${NGINX_VERSION:-1.25.3}`) for OCI compatibility
+- Use `.env.example` for configuration templates, `.env.<environ>` for environment-specific secrets
 - Use `example.com` as placeholder domain in examples
 - Use `Swordfish` as placeholder password in examples
 - Pin image versions explicitly (see Image Tagging Policy below)
@@ -62,13 +63,13 @@ Pin image versions explicitly to ensure reproducible deployments.
 
 **Allowed Exceptions:**
 - **Redis:** May use `latest` tag (stable, backward-compatible)
-- **Images with only `latest` available:** Document in `.env` file with comment explaining the exception
+- **Images with only `latest` available:** Document with comment in docker-compose.yml explaining the exception
 
 **Example for exception:**
-```bash
-# .env
+```yaml
+# docker-compose.yml
 # Note: redash/nginx only publishes 'latest' tag - no versioned tags available
-REDASH_NGINX_VERSION=latest
+image: redash/nginx:${REDASH_NGINX_VERSION:-latest}
 ```
 
 ---
@@ -125,8 +126,7 @@ beecompose/
 └── services/
     └── <service>/
         ├── bee                   # Service helper script
-        ├── docker-compose.yml    # Compose configuration
-        ├── .env                  # Version tags (committed)
+        ├── docker-compose.yml    # Compose configuration (versions as defaults)
         ├── .env.<environ>        # Environment secrets (gitignored)
         ├── .env.example          # Example config (committed)
         └── data/                 # Persistent data (gitignored)
@@ -212,7 +212,7 @@ Service keys must follow DCLint's expected order:
 name: <service>
 services:
   <service>:
-    image: <image>:${<SERVICE>_VERSION}
+    image: <image>:${<SERVICE>_VERSION:-1.2.3}
     container_name: <service>
     depends_on: [dependency1, dependency2]
     volumes:
@@ -274,11 +274,7 @@ When defining services, use this key order for consistency:
 
 ### Environment File Patterns
 
-**.env (committed):**
-```bash
-SERVICE_VERSION=1.2.3
-POSTGRES_TAG=13-alpine
-```
+**No `.env` file for versions** - Version tags are embedded as default values directly in docker-compose.yml for OCI compatibility.
 
 **.env.example (committed):**
 ```bash
@@ -360,20 +356,19 @@ Sentry: Update base image to getsentry/sentry
 ## Adding a New Service
 
 1. Create `services/<name>/` directory
-2. Create `docker-compose.yml` following the standard template
-3. Create `.env` with version tags
-4. Create `.env.example` with placeholder secrets
-5. Create `bee` script with `SERVICE` and `WAIT_TIME` exports
-6. Implement `do_health()` function
-7. Optionally implement `do_prepare()` for setup tasks
-8. Run DCLint to validate: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<name> -c /app/.dclintrc.yaml`
-9. Test with `./bee up test`
+2. Create `docker-compose.yml` following the standard template (with version defaults embedded)
+3. Create `.env.example` with placeholder secrets
+4. Create `bee` script with `SERVICE` and `WAIT_TIME` exports
+5. Implement `do_health()` function
+6. Optionally implement `do_prepare()` for setup tasks
+7. Run DCLint to validate: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<name> -c /app/.dclintrc.yaml`
+8. Test with `./bee up test`
 
 ---
 
 ## Updating a Service
 
-1. Update version in `.env` file
+1. Update version default in `docker-compose.yml` image tag
 2. Check upstream changelog for breaking changes
 3. Update `docker-compose.yml` if required
 4. Run DCLint to validate changes
