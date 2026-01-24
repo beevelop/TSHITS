@@ -46,6 +46,36 @@ updates:
       - "infrastructure"
     open-pull-requests-limit: 3
 
+  - package-ecosystem: "docker-compose"
+    directory: "/services/traefik-tunnel"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Traefik-Tunnel"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "infrastructure"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker-compose"
+    directory: "/services/cloudflared"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "Cloudflared"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "infrastructure"
+    open-pull-requests-limit: 3
+
   # Atlassian Suite
   - package-ecosystem: "docker-compose"
     directory: "/services/jira"
@@ -337,6 +367,21 @@ updates:
     open-pull-requests-limit: 3
 
   # Productivity & CMS
+  - package-ecosystem: "docker-compose"
+    directory: "/services/n8n"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "07:30"
+      timezone: "UTC"
+    commit-message:
+      prefix: "n8n"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "productivity"
+    open-pull-requests-limit: 3
+
   - package-ecosystem: "docker-compose"
     directory: "/services/directus"
     schedule:

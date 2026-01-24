@@ -355,6 +355,10 @@ Sentry: Update base image to getsentry/sentry
 
 ## Adding a New Service
 
+When adding a new service, you **MUST** update multiple files to ensure full coverage. The CI/CD pipeline will fail if any required file is missing the new service.
+
+### Required Steps
+
 1. Create `services/<name>/` directory
 2. Create `docker-compose.yml` following the standard template (with version defaults embedded)
 3. Create `.env` with version tags
@@ -362,6 +366,54 @@ Sentry: Update base image to getsentry/sentry
 5. Create `README.md` with deployment instructions
 6. Use named volumes (no bind mounts for OCI compatibility)
 7. Run DCLint to validate: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<name> -c /app/.dclintrc.yaml`
+8. **Add to README.md** - Add row to the services table (required)
+9. **Add to scripts/bc** - Add entry to `cmd_list()` function (required)
+
+### Optional Steps (for automation)
+
+10. **Add to `.github/workflows/check-versions.yml`** - Add entry to `IMAGE_REGISTRIES` array for automatic version checking
+11. **Add to `.github/dependabot.yml`** - Add docker-compose ecosystem entry for Dependabot updates
+
+### Service Coverage Check
+
+The CI/CD pipeline includes a service coverage check that verifies all services are properly documented. You can run this check locally:
+
+```bash
+# Check service coverage
+./.github/scripts/check-service-coverage.sh
+
+# Show fix hints for missing entries
+./.github/scripts/check-service-coverage.sh --fix-hints
+```
+
+---
+
+## Service Coverage Requirements
+
+When adding or removing services, multiple files must stay synchronized. The CI/CD pipeline enforces this automatically.
+
+### Required Coverage (CI will fail if missing)
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `README.md` | Services table (lines 15-49) | User-facing service documentation |
+| `scripts/bc` | `cmd_list()` function | CLI helper service listing |
+
+### Optional Coverage (warnings only)
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `.github/workflows/check-versions.yml` | `IMAGE_REGISTRIES` array | Automatic upstream version checking |
+| `.github/dependabot.yml` | Per-service docker-compose entries | Dependabot image update PRs |
+
+### Files That Auto-Discover Services
+
+These files dynamically find services and don't need manual updates:
+
+| File | Method |
+|------|--------|
+| `.github/workflows/ci-cd.yml` | `find services -name "docker-compose.yml"` |
+| `.github/workflows/publish-oci.yml` | `find services -maxdepth 1 -mindepth 1 -type d` |
 
 ---
 
