@@ -117,6 +117,8 @@ beecompose/
 │   ├── DEPLOYMENT.md     # Deployment guide
 │   └── TESTING.md        # Testing procedures
 ├── scripts/
+│   ├── bc                    # CLI helper (optional, install system-wide)
+│   ├── install.sh            # bc CLI installer
 │   ├── publish-dry-run.sh    # OCI publishing dry run
 │   ├── test-oci.sh           # Test OCI deployment
 │   └── validate-all-oci.sh   # Validate OCI compatibility
@@ -133,7 +135,35 @@ beecompose/
 
 ## Common Operations
 
-### Deploying from OCI Artifact
+### bc CLI Helper (Optional)
+
+The `bc` CLI simplifies OCI artifact deployment. **Usage is optional** - direct `docker compose` commands work equally well.
+
+```bash
+# Install bc CLI (optional)
+curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash
+
+# Deploy service
+bc <service> up        # Starts service, always pulls latest
+bc <service> down      # Stops service
+bc <service> logs -f   # Follow logs
+bc <service> ps        # Check status
+bc <service> update    # Pull and recreate
+
+# Pin OCI version
+bc init v26.1.6        # Creates .beecompose config
+bc -v latest sentry up # Override version per-command
+```
+
+The bc CLI:
+- Wraps `docker compose -f oci://...` with opinionated defaults
+- Always pulls latest images (`--pull always`)
+- Automatically uses `.env.<service>` for environment variables
+- Supports version pinning via `.beecompose` file or `-v` flag
+
+> **Note:** When documenting services, always show both bc CLI and manual docker compose commands.
+
+### Deploying from OCI Artifact (Manual)
 
 ```bash
 # Deploy directly from GHCR

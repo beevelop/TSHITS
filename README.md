@@ -50,7 +50,39 @@ Click on a service name to view its detailed README with configuration options, 
 
 ## Quick Start
 
-### Deploy from GHCR (Recommended)
+### Using bc CLI Helper (Recommended)
+
+Install the `bc` CLI helper for the best experience:
+
+```bash
+# Install bc CLI
+curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash
+
+# Create environment file
+cat > .env.metabase << 'EOF'
+COMPOSE_PROJECT_NAME=metabase
+SERVICE_DOMAIN=metabase.example.com
+DB_PASS=your-secure-password
+EOF
+
+# Deploy
+bc metabase up
+
+# Check status
+bc metabase ps
+
+# View logs
+bc metabase logs -f
+
+# Stop
+bc metabase down
+```
+
+The `bc` CLI wraps Docker Compose with opinionated defaults - it always pulls the latest images and automatically uses `.env.<service>` files.
+
+> **Note:** The `bc` CLI is optional. You can always use `docker compose` directly as shown below.
+
+### Deploy from GHCR (Manual)
 
 Deploy any service directly from GitHub Container Registry without cloning the repository:
 
@@ -99,6 +131,48 @@ docker compose --env-file .env.production up -d
 > For older Docker versions, use the "Clone and Customize" method.
 
 ## Common Operations
+
+### Using bc CLI (Optional)
+
+The `bc` CLI provides simplified commands for all lifecycle operations:
+
+| Task | bc Command | Manual Equivalent |
+|------|------------|-------------------|
+| Start service | `bc metabase up` | `docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env.metabase up -d --pull always` |
+| Stop service | `bc metabase down` | `docker compose -f oci://... down` |
+| View logs | `bc metabase logs -f` | `docker compose -f oci://... logs -f` |
+| Check status | `bc metabase ps` | `docker compose -f oci://... ps` |
+| Update | `bc metabase update` | `docker compose -f oci://... pull && ... up -d` |
+
+#### bc CLI Installation
+
+```bash
+# Install
+curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash
+
+# Uninstall
+curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash -s -- uninstall
+```
+
+#### Pin OCI Version
+
+Create a `.beecompose` file to pin all services to a specific version:
+
+```bash
+# Create config
+bc init v26.1.6
+
+# Or manually
+echo "BEECOMPOSE_VERSION=v26.1.6" > .beecompose
+```
+
+Override per-command with `-v`:
+
+```bash
+bc -v latest metabase up
+```
+
+### Manual Operations
 
 | Task | Command |
 |------|---------|
@@ -223,6 +297,10 @@ See [traefik-tunnel README](services/traefik-tunnel/README.md) and [cloudflared 
 
 ```
 beecompose/
+├── scripts/
+│   ├── bc                        # CLI helper (install system-wide)
+│   ├── install.sh                # Installer for bc CLI
+│   └── ...
 ├── services/
 │   └── <service>/
 │       ├── docker-compose.yml    # Compose configuration

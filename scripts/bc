@@ -1,0 +1,742 @@
+#!/usr/bin/env bash
+# bc - BeeCompose CLI Helper
+# Opinionated wrapper for Docker Compose with OCI artifacts from GHCR
+#
+# Usage: bc <service> <command> [options]
+#
+# Examples:
+#   bc metabase up          # Start metabase
+#   bc gitlab down          # Stop gitlab
+#   bc sentry logs -f       # Follow sentry logs
+#   bc traefik ps           # Check traefik status
+#
+# Configuration:
+#   .beecompose              # Local config file with BEECOMPOSE_VERSION
+#   .env.<service>           # Service-specific environment file
+#
+# Installation:
+#   curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | bash
+
+set -euo pipefail
+
+# =============================================================================
+# Configuration
+# =============================================================================
+readonly BC_VERSION="1.0.0"
+readonly BC_REGISTRY="${BEECOMPOSE_REGISTRY:-ghcr.io/beevelop}"
+readonly BC_CONFIG_FILE=".beecompose"
+readonly BC_DEFAULT_VERSION="latest"
+
+# Colors for output (disabled if not a TTY)
+if [[ -t 1 ]]; then
+  readonly RED='\033[0;31m'
+  readonly GREEN='\033[0;32m'
+  readonly YELLOW='\033[0;33m'
+  readonly BLUE='\033[0;34m'
+  readonly CYAN='\033[0;36m'
+  readonly BOLD='\033[1m'
+  readonly NC='\033[0m' # No Color
+else
+  readonly RED='' GREEN='' YELLOW='' BLUE='' CYAN='' BOLD='' NC=''
+fi
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+bc_log() {
+  echo -e "${CYAN}[bc]${NC} $*"
+}
+
+bc_success() {
+  echo -e "${GREEN}[bc]${NC} $*"
+}
+
+bc_warn() {
+  echo -e "${YELLOW}[bc]${NC} $*" >&2
+}
+
+bc_error() {
+  echo -e "${RED}[bc]${NC} $*" >&2
+}
+
+bc_debug() {
+  if [[ "${BEECOMPOSE_DEBUG:-0}" == "1" ]]; then
+    echo -e "${BLUE}[bc:debug]${NC} $*" >&2
+  fi
+}
+
+# Check Docker version requirements
+check_docker_version() {
+  local docker_version
+  docker_version=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
+  
+  local major minor
+  major=$(echo "$docker_version" | cut -d. -f1)
+  minor=$(echo "$docker_version" | cut -d. -f2)
+  
+  if [[ "$major" -lt 25 ]]; then
+    bc_error "Docker 25.0+ required for OCI artifact support (found: $docker_version)"
+    bc_error "Please upgrade Docker: https://docs.docker.com/engine/install/"
+    return 1
+  fi
+  
+  bc_debug "Docker version: $docker_version (OK)"
+}
+
+# Check Docker Compose version requirements
+check_compose_version() {
+  local compose_version
+  compose_version=$(docker compose version --short 2>/dev/null || echo "0.0.0")
+  
+  local major minor
+  major=$(echo "$compose_version" | cut -d. -f1)
+  minor=$(echo "$compose_version" | cut -d. -f2)
+  
+  if [[ "$major" -lt 2 ]] || { [[ "$major" -eq 2 ]] && [[ "$minor" -lt 24 ]]; }; then
+    bc_error "Docker Compose v2.24+ required for OCI artifact support (found: $compose_version)"
+    bc_error "Please upgrade Docker Compose"
+    return 1
+  fi
+  
+  bc_debug "Docker Compose version: $compose_version (OK)"
+}
+
+# Get the OCI artifact version (from arg, config file, or default)
+get_version() {
+  local version="${1:-}"
+  
+  # Priority 1: Explicitly passed version
+  if [[ -n "$version" ]]; then
+    echo "$version"
+    return
+  fi
+  
+  # Priority 2: Environment variable
+  if [[ -n "${BEECOMPOSE_VERSION:-}" ]]; then
+    bc_debug "Using version from BEECOMPOSE_VERSION: $BEECOMPOSE_VERSION"
+    echo "$BEECOMPOSE_VERSION"
+    return
+  fi
+  
+  # Priority 3: Local .beecompose config file
+  if [[ -f "$BC_CONFIG_FILE" ]]; then
+    # Source the file and extract BEECOMPOSE_VERSION
+    local config_version
+    config_version=$(grep -E '^BEECOMPOSE_VERSION=' "$BC_CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' | tr -d "'" || true)
+    if [[ -n "$config_version" ]]; then
+      bc_debug "Using version from $BC_CONFIG_FILE: $config_version"
+      echo "$config_version"
+      return
+    fi
+  fi
+  
+  # Priority 4: Default to latest
+  bc_debug "Using default version: $BC_DEFAULT_VERSION"
+  echo "$BC_DEFAULT_VERSION"
+}
+
+# Build the OCI URL for a service
+get_oci_url() {
+  local service="$1"
+  local version="$2"
+  echo "oci://${BC_REGISTRY}/${service}:${version}"
+}
+
+# Get the environment file path for a service
+get_env_file() {
+  local service="$1"
+  local env_file=".env.${service}"
+  
+  if [[ -f "$env_file" ]]; then
+    echo "$env_file"
+  else
+    bc_debug "Environment file not found: $env_file"
+    echo ""
+  fi
+}
+
+# Build docker compose command with all options
+build_compose_cmd() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  local cmd=(docker compose -f "$oci_url")
+  
+  if [[ -n "$env_file" ]]; then
+    cmd+=(--env-file "$env_file")
+  fi
+  
+  echo "${cmd[@]}"
+}
+
+# =============================================================================
+# Commands
+# =============================================================================
+
+cmd_up() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  bc_log "Starting ${BOLD}${service}${NC} (${version})"
+  
+  if [[ -z "$env_file" ]]; then
+    bc_warn "No .env.${service} found - using defaults only"
+    bc_warn "Create .env.${service} with required variables for production use"
+  else
+    bc_debug "Using environment file: $env_file"
+  fi
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  
+  # Add opinionated defaults for up
+  cmd+=(up -d --pull always --yes)
+  
+  # Add any additional arguments
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+  
+  bc_success "${service} started successfully"
+}
+
+cmd_down() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  bc_log "Stopping ${BOLD}${service}${NC}"
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(down)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+  
+  bc_success "${service} stopped"
+}
+
+cmd_restart() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  bc_log "Restarting ${BOLD}${service}${NC}"
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(restart)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+  
+  bc_success "${service} restarted"
+}
+
+cmd_logs() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  bc_log "Showing logs for ${BOLD}${service}${NC}"
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(logs)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+}
+
+cmd_ps() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(ps)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+}
+
+cmd_pull() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  bc_log "Pulling images for ${BOLD}${service}${NC} (${version})"
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(pull)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+  
+  bc_success "Images pulled"
+}
+
+cmd_exec() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(exec)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+}
+
+cmd_config() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  bc_log "Configuration for ${BOLD}${service}${NC} (${version})"
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=(config)
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+}
+
+cmd_update() {
+  local service="$1"
+  local version="$2"
+  shift 2
+  
+  bc_log "Updating ${BOLD}${service}${NC} (${version})"
+  
+  # Pull latest images and recreate containers
+  cmd_pull "$service" "$version"
+  cmd_up "$service" "$version" --force-recreate
+  
+  bc_success "${service} updated"
+}
+
+# Passthrough any docker compose command
+cmd_passthrough() {
+  local service="$1"
+  local version="$2"
+  local command="$3"
+  shift 3
+  
+  local oci_url
+  oci_url=$(get_oci_url "$service" "$version")
+  
+  local env_file
+  env_file=$(get_env_file "$service")
+  
+  local cmd=(docker compose -f "$oci_url")
+  [[ -n "$env_file" ]] && cmd+=(--env-file "$env_file")
+  cmd+=("$command")
+  cmd+=("$@")
+  
+  bc_debug "Executing: ${cmd[*]}"
+  "${cmd[@]}"
+}
+
+# =============================================================================
+# Special Commands (no service required)
+# =============================================================================
+
+cmd_init() {
+  local version="${1:-$BC_DEFAULT_VERSION}"
+  
+  if [[ -f "$BC_CONFIG_FILE" ]]; then
+    bc_warn "$BC_CONFIG_FILE already exists"
+    bc_log "Current version: $(grep -E '^BEECOMPOSE_VERSION=' "$BC_CONFIG_FILE" 2>/dev/null | cut -d= -f2 || echo 'not set')"
+    return 0
+  fi
+  
+  cat > "$BC_CONFIG_FILE" << EOF
+# BeeCompose Configuration
+# https://github.com/beevelop/beecompose
+
+# Default OCI artifact version for all services
+# Override per-command with: bc -v <version> <service> <command>
+BEECOMPOSE_VERSION=${version}
+EOF
+
+  bc_success "Created $BC_CONFIG_FILE with version: $version"
+  bc_log "Edit .env.<service> files to configure your services"
+}
+
+cmd_list() {
+  bc_log "Available BeeCompose services:"
+  echo ""
+  echo "  bitwarden         - Self-hosted password manager (Vaultwarden)"
+  echo "  cabot             - Monitoring and alerting platform"
+  echo "  cloudflared       - Cloudflare Tunnel for zero-trust access"
+  echo "  confluence        - Atlassian team collaboration and wiki"
+  echo "  crowd             - Atlassian SSO and identity management"
+  echo "  dependency-track  - OWASP component analysis platform"
+  echo "  directus          - Headless CMS and REST/GraphQL API"
+  echo "  duckling          - NLP text parser for structured data"
+  echo "  gitlab            - Complete DevOps platform with CI/CD"
+  echo "  graylog           - Centralized log management"
+  echo "  huginn            - Self-hosted IFTTT/Zapier alternative"
+  echo "  jira              - Atlassian issue tracking and projects"
+  echo "  keycloak          - Identity and access management"
+  echo "  metabase          - Business intelligence and analytics"
+  echo "  minio             - S3-compatible object storage"
+  echo "  monica            - Personal relationship management"
+  echo "  mysql             - MySQL database server"
+  echo "  n8n               - Workflow automation platform"
+  echo "  nexus             - Sonatype artifact repository manager"
+  echo "  openvpn           - VPN server (UDP and TCP)"
+  echo "  phpmyadmin        - MySQL web administration"
+  echo "  redash            - Data visualization and dashboards"
+  echo "  registry          - Private Docker registry"
+  echo "  rundeck           - Job scheduler and runbook automation"
+  echo "  sentry            - Error tracking and performance monitoring"
+  echo "  shields           - Self-hosted badge generation"
+  echo "  sonarqube         - Code quality inspection"
+  echo "  statping          - Status page and uptime monitoring"
+  echo "  traefik           - Reverse proxy with automatic HTTPS"
+  echo "  traefik-tunnel    - Traefik for Cloudflare Tunnel"
+  echo "  tus               - Resumable file upload server"
+  echo "  weblate           - Continuous localization platform"
+  echo "  zabbix            - Enterprise monitoring solution"
+  echo ""
+  bc_log "Deploy with: bc <service> up"
+  bc_log "Full docs: https://github.com/beevelop/beecompose"
+}
+
+cmd_upgrade() {
+  local install_url="https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh"
+  
+  bc_log "Upgrading bc CLI to latest version..."
+  
+  # Check if we can write to the install location
+  local bc_path
+  bc_path=$(command -v bc 2>/dev/null || echo "")
+  
+  if [[ -z "$bc_path" ]]; then
+    bc_error "Cannot find bc in PATH"
+    bc_log "Reinstall with: curl -fsSL $install_url | sudo bash"
+    return 1
+  fi
+  
+  bc_debug "Current bc location: $bc_path"
+  
+  # Download and run the installer
+  local tmp_installer
+  tmp_installer=$(mktemp)
+  trap "rm -f $tmp_installer" EXIT
+  
+  bc_log "Downloading installer..."
+  if command -v curl &> /dev/null; then
+    if ! curl -fsSL "$install_url" -o "$tmp_installer"; then
+      bc_error "Failed to download installer"
+      return 1
+    fi
+  elif command -v wget &> /dev/null; then
+    if ! wget -qO "$tmp_installer" "$install_url"; then
+      bc_error "Failed to download installer"
+      return 1
+    fi
+  else
+    bc_error "Neither curl nor wget found"
+    return 1
+  fi
+  
+  # Determine install directory from current location
+  local install_dir
+  install_dir=$(dirname "$bc_path")
+  
+  bc_log "Installing to $install_dir..."
+  
+  # Check if we need sudo
+  if [[ -w "$install_dir" ]]; then
+    BC_INSTALL_DIR="$install_dir" bash "$tmp_installer"
+  else
+    bc_log "Elevated permissions required..."
+    BC_INSTALL_DIR="$install_dir" sudo -E bash "$tmp_installer"
+  fi
+  
+  bc_success "Upgrade complete!"
+  bc_log "New version: $(bc version 2>/dev/null | head -1 || echo 'unknown')"
+}
+
+cmd_version() {
+  echo "bc (BeeCompose CLI) version $BC_VERSION"
+  echo ""
+  echo "Docker: $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'not found')"
+  echo "Docker Compose: $(docker compose version --short 2>/dev/null || echo 'not found')"
+  echo ""
+  echo "Configuration:"
+  echo "  Registry: $BC_REGISTRY"
+  echo "  Default version: $(get_version)"
+  if [[ -f "$BC_CONFIG_FILE" ]]; then
+    echo "  Config file: $BC_CONFIG_FILE (found)"
+  else
+    echo "  Config file: $BC_CONFIG_FILE (not found)"
+  fi
+}
+
+cmd_help() {
+  cat << 'EOF'
+bc - BeeCompose CLI Helper
+
+USAGE:
+    bc <service> <command> [options]
+    bc <global-command>
+
+COMMANDS:
+    up          Start service (always pulls latest images)
+    down        Stop service
+    restart     Restart service
+    logs        View service logs (add -f to follow)
+    ps          Show service status
+    pull        Pull latest images
+    exec        Execute command in container
+    config      Show resolved compose configuration
+    update      Pull and recreate containers
+    <any>       Passthrough to docker compose
+
+GLOBAL COMMANDS:
+    init [version]    Create .beecompose config file
+    list              List available services
+    upgrade           Upgrade bc CLI to latest version
+    version           Show version information
+    help              Show this help
+
+OPTIONS:
+    -v, --version <version>    Override OCI artifact version
+    --debug                    Enable debug output
+
+CONFIGURATION:
+    .beecompose                Local config file (contains BEECOMPOSE_VERSION)
+    .env.<service>             Service-specific environment variables
+    
+    Environment variables:
+      BEECOMPOSE_VERSION       Default version for all services
+      BEECOMPOSE_REGISTRY      Override registry (default: ghcr.io/beevelop)
+      BEECOMPOSE_DEBUG         Enable debug output (set to 1)
+
+EXAMPLES:
+    bc metabase up                   Start Metabase
+    bc gitlab logs -f                Follow GitLab logs
+    bc -v v26.1.6 sentry up          Start Sentry with specific version
+    bc traefik ps                    Check Traefik status
+    bc n8n exec n8n sh               Shell into n8n container
+    bc init v26.1.6                  Create config pinned to v26.1.6
+
+SETUP:
+    1. Create environment file:
+       cat > .env.metabase << 'EOF'
+       COMPOSE_PROJECT_NAME=metabase
+       SERVICE_DOMAIN=metabase.example.com
+       DB_PASS=your-secure-password
+       EOF
+
+    2. Start the service:
+       bc metabase up
+
+    3. Check status:
+       bc metabase ps
+
+For more info: https://github.com/beevelop/beecompose
+EOF
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+
+main() {
+  local version=""
+  local args=()
+  
+  # Parse global options
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -v|--version)
+        if [[ $# -lt 2 ]] || [[ "$2" == -* ]]; then
+          cmd_version
+          exit 0
+        fi
+        version="$2"
+        shift 2
+        ;;
+      --debug)
+        export BEECOMPOSE_DEBUG=1
+        shift
+        ;;
+      -h|--help)
+        cmd_help
+        exit 0
+        ;;
+      *)
+        args+=("$1")
+        shift
+        ;;
+    esac
+  done
+  
+  set -- "${args[@]}"
+  
+  # Handle no arguments
+  if [[ $# -eq 0 ]]; then
+    cmd_help
+    exit 0
+  fi
+  
+  # Handle global commands (no service required)
+  case "$1" in
+    init)
+      shift
+      cmd_init "${1:-}"
+      exit 0
+      ;;
+    list|ls)
+      cmd_list
+      exit 0
+      ;;
+    upgrade)
+      cmd_upgrade
+      exit 0
+      ;;
+    version|--version|-V)
+      cmd_version
+      exit 0
+      ;;
+    help|--help|-h)
+      cmd_help
+      exit 0
+      ;;
+  esac
+  
+  # Require at least service and command
+  if [[ $# -lt 2 ]]; then
+    bc_error "Missing command. Usage: bc <service> <command>"
+    bc_log "Run 'bc help' for usage information"
+    exit 1
+  fi
+  
+  local service="$1"
+  local command="$2"
+  shift 2
+  
+  # Resolve version
+  version=$(get_version "$version")
+  
+  bc_debug "Service: $service"
+  bc_debug "Command: $command"
+  bc_debug "Version: $version"
+  bc_debug "Args: $*"
+  
+  # Check requirements
+  check_docker_version || exit 1
+  check_compose_version || exit 1
+  
+  # Execute command
+  case "$command" in
+    up)
+      cmd_up "$service" "$version" "$@"
+      ;;
+    down)
+      cmd_down "$service" "$version" "$@"
+      ;;
+    restart)
+      cmd_restart "$service" "$version" "$@"
+      ;;
+    logs)
+      cmd_logs "$service" "$version" "$@"
+      ;;
+    ps)
+      cmd_ps "$service" "$version" "$@"
+      ;;
+    pull)
+      cmd_pull "$service" "$version" "$@"
+      ;;
+    exec)
+      cmd_exec "$service" "$version" "$@"
+      ;;
+    config)
+      cmd_config "$service" "$version" "$@"
+      ;;
+    update)
+      cmd_update "$service" "$version" "$@"
+      ;;
+    *)
+      # Passthrough any other docker compose command
+      cmd_passthrough "$service" "$version" "$command" "$@"
+      ;;
+  esac
+}
+
+main "$@"
