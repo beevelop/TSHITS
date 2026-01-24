@@ -1,0 +1,85 @@
+name: n8n
+services:
+  n8n:
+    image: n8nio/n8n:${N8N_VERSION:-1.76.1}
+    container_name: n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${DB_NAME:-n8n}
+      DB_POSTGRESDB_USER: ${DB_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${DB_PASS:-Swordfish}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-change_me_generate_with_openssl}
+      N8N_HOST: ${SERVICE_DOMAIN:-n8n.example.com}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      NODE_ENV: production
+      WEBHOOK_URL: https://${SERVICE_DOMAIN:-n8n.example.com}/
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+      TZ: ${TZ:-UTC}
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 336
+    networks:
+      - n8n
+      - traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`${SERVICE_DOMAIN:-n8n.example.com}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "traefik.docker.network=traefik_default"
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: n8n-postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME:-n8n}
+      POSTGRES_USER: ${DB_USER:-n8n}
+      POSTGRES_PASSWORD: ${DB_PASS:-Swordfish}
+    networks:
+      - n8n
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-n8n} -d ${DB_NAME:-n8n}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+networks:
+  n8n:
+  traefik:
+    name: traefik_default
+    external: true
+
+volumes:
+  n8n_data:
+    name: ${COMPOSE_PROJECT_NAME:-n8n}_n8n_data
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-n8n}_postgres_data

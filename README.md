@@ -31,6 +31,7 @@ Click on a service name to view its detailed README with configuration options, 
 | [minio](services/minio/README.md) | S3-compatible object storage | `ghcr.io/beevelop/minio` |
 | [monica](services/monica/README.md) | Personal relationship management | `ghcr.io/beevelop/monica` |
 | [mysql](services/mysql/README.md) | MySQL database server | `ghcr.io/beevelop/mysql` |
+| [n8n](services/n8n/README.md) | Workflow automation platform | `ghcr.io/beevelop/n8n` |
 | [nexus](services/nexus/README.md) | Sonatype artifact repository manager | `ghcr.io/beevelop/nexus` |
 | [openvpn](services/openvpn/README.md) | VPN server (UDP and TCP) | `ghcr.io/beevelop/openvpn` |
 | [phpmyadmin](services/phpmyadmin/README.md) | MySQL web administration | `ghcr.io/beevelop/phpmyadmin` |
