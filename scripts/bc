@@ -495,7 +495,7 @@ cmd_upgrade() {
   # Download and run the installer
   local tmp_installer
   tmp_installer=$(mktemp)
-  trap "rm -f $tmp_installer" EXIT
+  trap 'rm -f "$tmp_installer"' EXIT
   
   bc_log "Downloading installer..."
   if command -v curl &> /dev/null; then
@@ -597,11 +597,11 @@ EXAMPLES:
 
 SETUP:
     1. Create environment file:
-       cat > .env.metabase << 'EOF'
+       cat > .env.metabase << 'END'
        COMPOSE_PROJECT_NAME=metabase
        SERVICE_DOMAIN=metabase.example.com
        DB_PASS=your-secure-password
-       EOF
+       END
 
     2. Start the service:
        bc metabase up
