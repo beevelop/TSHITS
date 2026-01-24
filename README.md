@@ -245,7 +245,6 @@ beecompose/
 |----------|-------------|
 | [Deployment Guide](docs/DEPLOYMENT.md) | Complete deployment walkthrough |
 | [Backup Guide](docs/BACKUP.md) | Backup and restore procedures |
-| [Migration Guide](docs/MIGRATION.md) | Migrate from legacy bee scripts |
 | [Testing Guide](docs/TESTING.md) | Testing procedures and validation |
 | [CI/CD Pipeline](.github/CI-CD.md) | Pipeline architecture and usage |
 

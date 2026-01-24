@@ -10,9 +10,8 @@ AI agent operating manual for BeeCompose. **Read completely before any action.**
 
 - **Created:** April 2020
 - **Purpose:** Docker-Compose configurations for self-hosted services
-- **Reverse Proxy:** Traefik v3 with Let's Encrypt (CloudFlare DNS-01)
-- **Encryption:** OpenSSL AES-256-CBC for environment files
-- **Backups:** Restic (local `./backups/` per service)
+- **Distribution:** OCI artifacts published to GitHub Container Registry
+- **Reverse Proxy:** Traefik v3 with Let's Encrypt (CloudFlare DNS-01) or Cloudflare Tunnel
 - **Linting:** DCLint (zavoloklom/docker-compose-linter) for compose file validation
 
 ---
@@ -34,7 +33,7 @@ AI agent operating manual for BeeCompose. **Read completely before any action.**
 - Use environment variable substitution (`${VAR}`) in compose files
 - Place service-specific configs in the service directory
 - Embed version tags as default values directly in docker-compose.yml (e.g., `image: nginx:${NGINX_VERSION:-1.25.3}`) for OCI compatibility
-- Use `.env.example` for configuration templates, `.env.<environ>` for environment-specific secrets
+- Use `.env` for version tags, `.env.example` for configuration templates
 - Use `example.com` as placeholder domain in examples
 - Use `Swordfish` as placeholder password in examples
 - Pin image versions explicitly (see Image Tagging Policy below)
@@ -44,14 +43,9 @@ AI agent operating manual for BeeCompose. **Read completely before any action.**
 ## Don't
 
 - **Never** execute docker-compose commands locally (`docker-compose up`, `docker-compose down`, `docker-compose pull`, etc.)
-- **Never** run `./bee` commands locally — all testing via GitHub Actions and CI/CD only
 - **Never** commit real secrets, credentials, or API keys
-- **Never** run destructive commands (`nuke`, `down --volumes`) without explicit approval
-- **Never** modify `.bee.pass` or `.bee.environ` files
+- **Never** run destructive commands (`down --volumes`) without explicit approval
 - **Never** run git write operations (`git commit`, `git push`, `git merge`)
-- **Never** execute `./bee upgrade` or `./bee nuke` without user confirmation
-- **Never** modify `meta/bee.sh` or `meta/checks.sh` without explicit approval
-- **Never** remove backup folders or prune backups without approval
 
 ---
 
@@ -114,66 +108,70 @@ The linter runs automatically in the CI/CD pipeline (Job 1). All errors must be 
 
 ```
 beecompose/
-├── .bee.environ          # Environment slug (e.g., "production")
-├── .bee.pass             # Master encryption key (NEVER commit real value)
 ├── .dclintrc.yaml        # Docker Compose linter configuration
-├── meta/
-│   ├── bee.sh            # Core helper functions (DO NOT MODIFY)
-│   └── checks.sh         # Health check functions
-├── housekeeping/
-│   ├── encrypt_all.sh    # Encrypt all service envs
-│   └── prune_backups.sh  # Prune all service backups
+├── .github/
+│   ├── workflows/        # CI/CD pipelines
+│   └── scripts/          # Test and validation scripts
+├── docs/
+│   ├── BACKUP.md         # Backup procedures
+│   ├── DEPLOYMENT.md     # Deployment guide
+│   └── TESTING.md        # Testing procedures
+├── scripts/
+│   ├── publish-dry-run.sh    # OCI publishing dry run
+│   ├── test-oci.sh           # Test OCI deployment
+│   └── validate-all-oci.sh   # Validate OCI compatibility
 └── services/
     └── <service>/
-        ├── bee                   # Service helper script
         ├── docker-compose.yml    # Compose configuration (versions as defaults)
-        ├── .env.<environ>        # Environment secrets (gitignored)
+        ├── README.md             # Service documentation
+        ├── .env                  # Version tags (committed)
         ├── .env.example          # Example config (committed)
-        └── data/                 # Persistent data (gitignored)
+        └── .env.<environ>        # Environment secrets (gitignored)
 ```
 
 ---
 
-## Commands
+## Common Operations
 
-### Service Operations (from `services/<service>/`)
+### Deploying from OCI Artifact
 
 ```bash
-# Prepare and launch service
-./bee up <environ>
+# Deploy directly from GHCR
+docker compose -f oci://ghcr.io/beevelop/<service>:latest --env-file .env up -d
 
-# Individual steps
-./bee prepare              # Create folders, generate configs
-./bee launch               # Pull images and start containers
-./bee health               # Run health checks
+# View logs
+docker compose -f oci://ghcr.io/beevelop/<service>:latest --env-file .env logs -f
 
-# Maintenance
-./bee backup               # Backup data/ to ./backups/ via restic
-./bee upgrade              # Backup + up (ASK FIRST)
-./bee logs <environ>       # Tail container logs
-./bee down                 # Stop containers (ASK FIRST)
-./bee nuke                 # Remove everything (DANGEROUS - ASK FIRST)
-
-# Encryption
-./bee encrypt <environ>    # Encrypt .env.<environ> to .enc.env.<environ>
-./bee decrypt <environ>    # Decrypt .enc.env.<environ> to .env.<environ>
+# Stop service
+docker compose -f oci://ghcr.io/beevelop/<service>:latest --env-file .env down
 ```
 
-### Housekeeping (from repo root)
+### Local Development
 
 ```bash
-# Encrypt all environments
-./housekeeping/encrypt_all.sh <environ>
+cd services/<service>
 
-# Prune all backups (ASK FIRST)
-./housekeeping/prune_backups.sh
+# Deploy locally
+docker compose --env-file .env.example up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
 ```
 
-### Traefik Setup (from `services/traefik/`)
+### Validation Scripts
 
 ```bash
-# Generate config from template
-envsubst < traefik.yml.tpl > traefik.yml
+# Validate single service for OCI compatibility
+./scripts/publish-dry-run.sh <service>
+
+# Validate all services
+./scripts/validate-all-oci.sh
+
+# Test OCI artifact deployment
+./scripts/test-oci.sh <service> [version]
 ```
 
 ---
@@ -191,13 +189,10 @@ envsubst < traefik.yml.tpl > traefik.yml
 **Ask first:**
 - Modifying existing docker-compose.yml files (beyond lint fixes)
 - Adding new services
-- Creating encrypted environment files
+- Modifying CI/CD workflows
 
 **Never do (require explicit confirmation):**
 - Execute any docker-compose commands locally
-- Execute any `./bee` commands locally
-- `./housekeeping/prune_backups.sh`
-- Modifying `meta/` files
 - Any git write operations
 
 ---
@@ -216,7 +211,7 @@ services:
     container_name: <service>
     depends_on: [dependency1, dependency2]
     volumes:
-      - ./data/<subdir>:/container/path
+      - <service>_data:/container/path
     environment:
       - VAR=${VAR}
     ports:
@@ -235,6 +230,9 @@ services:
       - "traefik.http.services.<service>.loadbalancer.server.port=<port>"
       - "traefik.docker.network=traefik_default"
 
+volumes:
+  <service>_data:
+
 networks:
   <service>:
   traefik:
@@ -243,6 +241,8 @@ networks:
 ```
 
 > **TLS Note:** Do NOT include `tls=true` or `tls.certresolver` labels. TLS is configured at the Traefik entrypoint level, enabling services to work in both exposed (Let's Encrypt) and tunnel (Cloudflare) modes without modification.
+
+> **OCI Note:** Use named volumes (not bind mounts) for OCI artifact compatibility.
 
 ### Service Key Order Reference
 
@@ -274,9 +274,13 @@ When defining services, use this key order for consistency:
 
 ### Environment File Patterns
 
-**No `.env` file for versions** - Version tags are embedded as default values directly in docker-compose.yml for OCI compatibility.
+**.env (committed) - Version tags only:**
+```bash
+SERVICE_VERSION=1.2.3
+POSTGRES_TAG=17-alpine
+```
 
-**.env.example (committed):**
+**.env.example (committed) - Configuration template:**
 ```bash
 SERVICE_DOMAIN=service.example.com
 DB_USER=bee
@@ -302,40 +306,6 @@ All services use Traefik v3 label syntax for routing configuration. TLS is handl
 
 ---
 
-## Service Bee Script Pattern
-
-```bash
-#!/usr/bin/env bash
-
-export SERVICE="ServiceName"
-export WAIT_TIME=20
-
-do_health() {
-  STATUS=0
-  check_traefik ${SERVICE_DOMAIN} "HTTP/1.1 200 OK" || STATUS=$?
-  return $STATUS
-}
-
-do_prepare() {
-  echo "Creating data directories..."
-  mkdir -p ./data/subfolder
-}
-
-. ../../meta/bee.sh "${@}"
-```
-
-### Available Health Check Functions
-
-```bash
-check_traefik <host> <expected>  # Check via Traefik (e.g., "HTTP/1.1 302 Found")
-check_curl <url> <expected>      # Direct HTTP check
-check_tcp <host> <port>          # TCP port check
-check_udp <host> <port>          # UDP port check
-check_file <path>                # File existence check
-```
-
----
-
 ## Commit Message Format
 
 ```
@@ -357,23 +327,22 @@ Sentry: Update base image to getsentry/sentry
 
 1. Create `services/<name>/` directory
 2. Create `docker-compose.yml` following the standard template (with version defaults embedded)
-3. Create `.env.example` with placeholder secrets
-4. Create `bee` script with `SERVICE` and `WAIT_TIME` exports
-5. Implement `do_health()` function
-6. Optionally implement `do_prepare()` for setup tasks
+3. Create `.env` with version tags
+4. Create `.env.example` with placeholder secrets
+5. Create `README.md` with deployment instructions
+6. Use named volumes (no bind mounts for OCI compatibility)
 7. Run DCLint to validate: `docker run --rm -v "$(pwd):/app" zavoloklom/dclint:latest /app/services/<name> -c /app/.dclintrc.yaml`
-8. Test with `./bee up test`
 
 ---
 
 ## Updating a Service
 
-1. Update version default in `docker-compose.yml` image tag
-2. Check upstream changelog for breaking changes
-3. Update `docker-compose.yml` if required
-4. Run DCLint to validate changes
-5. Run `./bee upgrade <environ>` (creates backup first)
-6. Verify with `./bee health`
+1. Update version in `.env` file
+2. Update version default in `docker-compose.yml` image tag
+3. Check upstream changelog for breaking changes
+4. Update `docker-compose.yml` if required
+5. Run DCLint to validate changes
+6. Update `README.md` if configuration changed
 7. Commit with format: `<Service>: <version>`
 
 ---
@@ -382,24 +351,18 @@ Sentry: Update base image to getsentry/sentry
 
 | Tool | Purpose |
 |------|---------|
-| Docker | Container runtime |
-| Docker-Compose | Service orchestration |
+| Docker 25.0+ | Container runtime with OCI support |
+| Docker Compose v2.24+ | Service orchestration |
 | DCLint | Docker Compose linting (via Docker image) |
-| envsubst | Template substitution (Traefik config) |
-| curl | HTTP health checks |
-| nc | TCP/UDP health checks |
-| restic | Backup management |
-| openssl | Environment encryption |
 
 ---
 
 ## When Stuck
 
-- Check `meta/bee.sh` for available helper functions
-- Check `meta/checks.sh` for health check implementations
 - Reference existing services as examples (GitLab, Sentry are comprehensive)
 - Run DCLint to validate compose syntax
-- Check Traefik dashboard at `:8080` for routing issues
+- Check service README for configuration details
+- Run `./scripts/validate-all-oci.sh` to check OCI compatibility
 
 ---
 
