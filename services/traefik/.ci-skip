@@ -1,3 +1,3 @@
 # Skip CI testing for this service
-# Reason: Requires `./bee prepare` to generate traefik.yml from template using envsubst
+# Reason: Requires envsubst to generate traefik.yml from template before startup
 # The traefik.yml config file must be generated before the container can start

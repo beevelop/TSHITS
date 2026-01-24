@@ -124,13 +124,6 @@ run_integration_tests() {
     
     log_step "Running integration tests..."
     
-    # Check if service has a bee script with health check
-    if [[ -x "$service_dir/bee" ]]; then
-        log_info "Found bee script, checking for health function..."
-        # Note: Can't run bee health in CI without full environment
-        # but we can verify the script exists and is executable
-    fi
-    
     # Basic HTTP checks for services with traefik labels
     local has_traefik=$(grep -l "traefik.enable=true" "$compose_file" 2>/dev/null || true)
     if [[ -n "$has_traefik" ]]; then

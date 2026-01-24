@@ -174,15 +174,23 @@ docker exec -it sentry sentry cleanup --days 30
 ### Backup
 
 ```bash
-./bee backup
+# Backup PostgreSQL database
+docker exec sentry-postgres pg_dump -U sentry sentry > sentry-backup.sql
 ```
 
 ### Upgrade
 
 ```bash
-./bee backup
-./bee up
-./bee upgrade
+# 1. Create a backup first
+docker exec sentry-postgres pg_dump -U sentry sentry > sentry-backup.sql
+
+# 2. Update version in .env
+# 3. Pull new images and restart
+docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env pull
+docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env up -d
+
+# 4. Run migrations if needed
+docker exec -it sentry sentry upgrade
 ```
 
 ## Troubleshooting

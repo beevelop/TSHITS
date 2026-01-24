@@ -1,4 +1,3 @@
 # This service cannot be tested in CI
-# Reason: Requires PKI initialization via `./bee prepare` which generates
-# certificates interactively. Without valid PKI in ./data/openvpn/conf,
-# the container will exit immediately.
+# Reason: Requires PKI initialization which generates certificates interactively.
+# Without valid PKI in the openvpn_conf volume, the container will exit immediately.
