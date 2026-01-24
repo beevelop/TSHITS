@@ -10,9 +10,48 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.weblate << 'EOF'
+COMPOSE_PROJECT_NAME=weblate
+SERVICE_DOMAIN=weblate.example.com
+DB_NAME=weblate
+DB_USER=weblate
+DB_PASS=Swordfish
+EOF
+
+# 2. Create weblate.env for additional settings
+cat > weblate.env << 'EOF'
+SECRET_KEY=your_random_secret_key_here
+ADMIN_PASSWORD=Swordfish
+WEBLATE_ADMIN_NAME=admin
+WEBLATE_ADMIN_EMAIL=admin@example.com
+WEBLATE_EMAIL=noreply@example.com
+REGISTRATION_OPEN=False
+EMAIL_HOST=smtp.example.com
+EMAIL_HOST_USER=noreply@example.com
+EMAIL_HOST_PASSWORD=Swordfish
+EMAIL_PORT=465
+DATABASE_PORT_5432_TCP_ADDR=postgres
+DATABASE_PORT_5432_TCP_PORT=5432
+EOF
+
+# 3. Deploy
+bc weblate up
+
+# 4. Check status
+bc weblate ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.weblate << 'EOF'
 COMPOSE_PROJECT_NAME=weblate
 SERVICE_DOMAIN=weblate.example.com
 DB_NAME=weblate
@@ -37,10 +76,10 @@ DATABASE_PORT_5432_TCP_PORT=5432
 EOF
 
 # 3. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env.weblate up -d --pull always
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env.weblate ps
 ```
 
 ## Prerequisites
@@ -134,9 +173,20 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc weblate logs -f     # View logs
+bc weblate restart     # Restart
+bc weblate down        # Stop
+bc weblate update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/weblate:latest --env-file .env.weblate"
 
 # View logs
 dc logs -f

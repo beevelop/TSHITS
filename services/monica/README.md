@@ -10,9 +10,56 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.monica << 'EOF'
+COMPOSE_PROJECT_NAME=monica
+SERVICE_DOMAIN=monica.example.com
+DB_PASS=Swordfish
+DB_ROOT_PASS=Swordfish
+EOF
+
+# 2. Create monica.env with application settings
+cat > monica.env << 'EOF'
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=your32characterlongapplicationkey
+DB_CONNECTION=mysql
+DB_PORT=3306
+MAIL_DRIVER=smtp
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=monica@example.com
+MAIL_FROM_NAME=Monica
+APP_DEFAULT_TIMEZONE=UTC
+APP_DISABLE_SIGNUP=true
+CHECK_VERSION=true
+CACHE_DRIVER=database
+SESSION_DRIVER=file
+QUEUE_DRIVER=sync
+DEFAULT_FILESYSTEM=public
+2FA_ENABLED=true
+EOF
+
+# 3. Deploy
+bc monica up
+
+# 4. Check status
+bc monica ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.monica << 'EOF'
 COMPOSE_PROJECT_NAME=monica
 SERVICE_DOMAIN=monica.example.com
 DB_PASS=Swordfish
@@ -45,10 +92,10 @@ DEFAULT_FILESYSTEM=public
 EOF
 
 # 3. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env.monica up -d --pull always
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env.monica ps
 ```
 
 ## Prerequisites
@@ -133,9 +180,20 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc monica logs -f     # View logs
+bc monica restart     # Restart
+bc monica down        # Stop
+bc monica update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/monica:latest --env-file .env.monica"
 
 # View logs
 dc logs -f

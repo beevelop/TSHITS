@@ -10,9 +10,31 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.minio << 'EOF'
+COMPOSE_PROJECT_NAME=minio
+SERVICE_DOMAIN=minio.example.com
+MINIO_ROOT_USER=admin
+MINIO_ROOT_PASSWORD=Swordfish
+EOF
+
+# 2. Deploy
+bc minio up
+
+# 3. Check status
+bc minio ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.minio << 'EOF'
 COMPOSE_PROJECT_NAME=minio
 SERVICE_DOMAIN=minio.example.com
 MINIO_ROOT_USER=admin
@@ -20,10 +42,10 @@ MINIO_ROOT_PASSWORD=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/minio:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/minio:latest --env-file .env.minio up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/minio:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/minio:latest --env-file .env.minio ps
 ```
 
 ## Prerequisites
@@ -98,9 +120,20 @@ mc ls myminio
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc minio logs -f     # View logs
+bc minio restart     # Restart
+bc minio down        # Stop
+bc minio update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/minio:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/minio:latest --env-file .env.minio"
 
 # View logs
 dc logs -f

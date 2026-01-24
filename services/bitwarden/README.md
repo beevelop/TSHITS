@@ -10,9 +10,36 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.bitwarden << 'EOF'
+COMPOSE_PROJECT_NAME=bitwarden
+SERVICE_DOMAIN=bitwarden.example.com
+ADMIN_TOKEN=your_secure_admin_token_here
+SMTP_HOST=smtp.example.com
+SMTP_FROM=noreply@example.com
+SMTP_PORT=465
+SMTP_SECURITY=force_tls
+SMTP_USERNAME=noreply@example.com
+SMTP_PASSWORD=Swordfish
+EOF
+
+# 2. Deploy
+bc bitwarden up
+
+# 3. Check status
+bc bitwarden ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.bitwarden << 'EOF'
 COMPOSE_PROJECT_NAME=bitwarden
 SERVICE_DOMAIN=bitwarden.example.com
 ADMIN_TOKEN=your_secure_admin_token_here
@@ -25,10 +52,10 @@ SMTP_PASSWORD=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env.bitwarden up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env.bitwarden ps
 ```
 
 ## Prerequisites
@@ -95,9 +122,20 @@ docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env ps
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc bitwarden logs -f     # View logs
+bc bitwarden restart     # Restart
+bc bitwarden down        # Stop
+bc bitwarden update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/bitwarden:latest --env-file .env.bitwarden"
 
 # View logs
 dc logs -f

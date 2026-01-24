@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.metabase << 'EOF'
+COMPOSE_PROJECT_NAME=metabase
+SERVICE_DOMAIN=metabase.example.com
+DB_PASS=Swordfish
+EOF
+
+# 2. Deploy
+bc metabase up
+
+# 3. Check status
+bc metabase ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.metabase << 'EOF'
 COMPOSE_PROJECT_NAME=metabase
 SERVICE_DOMAIN=metabase.example.com
 DB_PASS=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env.metabase up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env.metabase ps
 ```
 
 ## Prerequisites
@@ -84,9 +105,20 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc metabase logs -f     # View logs
+bc metabase restart     # Restart
+bc metabase down        # Stop
+bc metabase update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env.metabase"
 
 # View logs
 dc logs -f

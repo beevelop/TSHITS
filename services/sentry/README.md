@@ -10,9 +10,41 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.sentry << 'EOF'
+COMPOSE_PROJECT_NAME=sentry
+SERVICE_DOMAIN=sentry.example.com
+DB_PASS=Swordfish
+EOF
+
+# 2. Create sentry.env configuration
+cat > sentry.env << 'EOF'
+SENTRY_SECRET_KEY=your-secret-key-here-generate-with-openssl-rand-hex-32
+SENTRY_MEMCACHED_HOST=memcached
+SENTRY_REDIS_HOST=redis
+SENTRY_POSTGRES_HOST=postgres
+SENTRY_DB_NAME=sentry
+SENTRY_DB_USER=sentry
+SENTRY_DB_PASSWORD=Swordfish
+EOF
+
+# 3. Deploy
+bc sentry up
+
+# 4. Check status
+bc sentry ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.sentry << 'EOF'
 COMPOSE_PROJECT_NAME=sentry
 SERVICE_DOMAIN=sentry.example.com
 DB_PASS=Swordfish
@@ -30,10 +62,10 @@ SENTRY_DB_PASSWORD=Swordfish
 EOF
 
 # 3. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env.sentry up -d --pull always
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env.sentry ps
 ```
 
 ## Prerequisites
@@ -144,9 +176,21 @@ SENTRY_SERVER_EMAIL=sentry@example.com
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc sentry logs -f       # View logs
+bc sentry logs -f server  # View specific service logs
+bc sentry restart       # Restart
+bc sentry down          # Stop
+bc sentry update        # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env.sentry"
 
 # View logs
 dc logs -f
@@ -184,10 +228,10 @@ docker exec sentry-postgres pg_dump -U sentry sentry > sentry-backup.sql
 # 1. Create a backup first
 docker exec sentry-postgres pg_dump -U sentry sentry > sentry-backup.sql
 
-# 2. Update version in .env
+# 2. Update version in .env.sentry
 # 3. Pull new images and restart
-docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env pull
-docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env.sentry pull
+docker compose -f oci://ghcr.io/beevelop/sentry:latest --env-file .env.sentry up -d
 
 # 4. Run migrations if needed
 docker exec -it sentry sentry upgrade

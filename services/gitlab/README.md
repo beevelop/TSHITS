@@ -10,9 +10,34 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.gitlab << 'EOF'
+COMPOSE_PROJECT_NAME=gitlab
+SERVICE_DOMAIN=gitlab.example.com
+DB_PASS=Swordfish
+GITLAB_ROOT_PASSWORD=Swordfish
+GITLAB_SECRETS_DB_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+GITLAB_SECRETS_SECRET_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+GITLAB_SECRETS_OTP_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+EOF
+
+# 2. Deploy
+bc gitlab up
+
+# 3. Check status
+bc gitlab ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.gitlab << 'EOF'
 COMPOSE_PROJECT_NAME=gitlab
 SERVICE_DOMAIN=gitlab.example.com
 DB_PASS=Swordfish
@@ -23,10 +48,10 @@ GITLAB_SECRETS_OTP_KEY_BASE=1234567890abcdef1234567890abcdef1234567890abcdef1234
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab ps
 ```
 
 ## Prerequisites
@@ -143,9 +168,20 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc gitlab logs -f     # View logs
+bc gitlab restart     # Restart
+bc gitlab down        # Stop
+bc gitlab update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/gitlab:latest --env-file .env.gitlab"
 
 # View logs
 dc logs -f

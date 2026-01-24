@@ -10,9 +10,33 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.directus << 'EOF'
+COMPOSE_PROJECT_NAME=directus
+SERVICE_DOMAIN=directus.example.com
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=Swordfish
+DB_PASS=Swordfish
+DB_ROOT_PASS=Swordfish
+EOF
+
+# 2. Deploy
+bc directus up
+
+# 3. Check status
+bc directus ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.directus << 'EOF'
 COMPOSE_PROJECT_NAME=directus
 SERVICE_DOMAIN=directus.example.com
 ADMIN_EMAIL=admin@example.com
@@ -22,10 +46,10 @@ DB_ROOT_PASS=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env.directus up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env.directus ps
 ```
 
 ## Prerequisites
@@ -89,9 +113,20 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc directus logs -f     # View logs
+bc directus restart     # Restart
+bc directus down        # Stop
+bc directus update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/directus:latest --env-file .env.directus"
 
 # View logs
 dc logs -f

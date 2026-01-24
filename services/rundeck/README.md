@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.rundeck << 'EOF'
+COMPOSE_PROJECT_NAME=rundeck
+SERVICE_DOMAIN=rundeck.example.com
+RUNDECK_ADMIN_PASSWORD=Swordfish
+EOF
+
+# 2. Deploy
+bc rundeck up
+
+# 3. Check status
+bc rundeck ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.rundeck << 'EOF'
 COMPOSE_PROJECT_NAME=rundeck
 SERVICE_DOMAIN=rundeck.example.com
 RUNDECK_ADMIN_PASSWORD=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/rundeck:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/rundeck:latest --env-file .env.rundeck up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/rundeck:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/rundeck:latest --env-file .env.rundeck ps
 ```
 
 ## Prerequisites
@@ -133,9 +154,20 @@ foo.example.com:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc rundeck logs -f     # View logs
+bc rundeck restart     # Restart
+bc rundeck down        # Stop
+bc rundeck update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/rundeck:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/rundeck:latest --env-file .env.rundeck"
 
 # View logs
 dc logs -f

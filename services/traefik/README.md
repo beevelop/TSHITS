@@ -8,9 +8,33 @@ Cloud-native reverse proxy and load balancer with automatic HTTPS via Let's Encr
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.traefik << 'EOF'
+COMPOSE_PROJECT_NAME=traefik
+TRAEFIK_DOMAIN=traefik.example.com
+TRAEFIK_EMAIL=admin@example.com
+TRAEFIK_AUTH=admin:$$apr1$$your_hashed_password
+CLOUDFLARE_EMAIL=admin@example.com
+CLOUDFLARE_API_KEY=your_cloudflare_api_key
+EOF
+
+# 2. Deploy
+bc traefik up
+
+# 3. Check status
+bc traefik ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.traefik << 'EOF'
 COMPOSE_PROJECT_NAME=traefik
 TRAEFIK_DOMAIN=traefik.example.com
 TRAEFIK_EMAIL=admin@example.com
@@ -20,10 +44,10 @@ CLOUDFLARE_API_KEY=your_cloudflare_api_key
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik ps
 ```
 
 ## Prerequisites
@@ -98,9 +122,20 @@ docker run --rm httpd:alpine htpasswd -nb admin your_password | sed 's/\$/\$\$/g
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc traefik logs -f     # View logs
+bc traefik restart     # Restart
+bc traefik down        # Stop
+bc traefik update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/traefik:latest --env-file .env.traefik"
 
 # View logs
 dc logs -f
@@ -137,7 +172,7 @@ Ensure services have `traefik.enable=true` label and are connected to `traefik_d
 For deployments behind Cloudflare Tunnel (no public port exposure), use [traefik-tunnel](../traefik-tunnel/) instead:
 
 ```bash
-docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env.traefik up -d
 ```
 
 ## Links

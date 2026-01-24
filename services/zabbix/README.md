@@ -10,9 +10,31 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.zabbix << 'EOF'
+COMPOSE_PROJECT_NAME=zabbix
+SERVICE_DOMAIN=zabbix.example.com
+DB_PASS=Swordfish
+DB_ROOT_PASS=Swordfish
+EOF
+
+# 2. Deploy
+bc zabbix up
+
+# 3. Check status
+bc zabbix ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.zabbix << 'EOF'
 COMPOSE_PROJECT_NAME=zabbix
 SERVICE_DOMAIN=zabbix.example.com
 DB_PASS=Swordfish
@@ -20,10 +42,10 @@ DB_ROOT_PASS=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env.zabbix up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env.zabbix ps
 ```
 
 ## Prerequisites
@@ -111,9 +133,21 @@ ServerActive=your-server-ip:10051
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc zabbix logs -f          # View logs
+bc zabbix logs -f zabbix-server  # View server logs specifically
+bc zabbix restart          # Restart
+bc zabbix down             # Stop
+bc zabbix update           # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/zabbix:latest --env-file .env.zabbix"
 
 # View logs
 dc logs -f

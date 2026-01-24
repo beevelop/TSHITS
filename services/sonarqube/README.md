@@ -10,22 +10,46 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Prepare host system (required for Elasticsearch)
 sudo sysctl -w vm.max_map_count=524288
 sudo sysctl -w fs.file-max=131072
 
 # 2. Create environment file
-cat > .env << 'EOF'
+cat > .env.sonarqube << 'EOF'
+COMPOSE_PROJECT_NAME=sonarqube
+SERVICE_DOMAIN=sonarqube.example.com
+EOF
+
+# 3. Deploy
+bc sonarqube up
+
+# 4. Check status
+bc sonarqube ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Prepare host system (required for Elasticsearch)
+sudo sysctl -w vm.max_map_count=524288
+sudo sysctl -w fs.file-max=131072
+
+# 2. Create environment file
+cat > .env.sonarqube << 'EOF'
 COMPOSE_PROJECT_NAME=sonarqube
 SERVICE_DOMAIN=sonarqube.example.com
 EOF
 
 # 3. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env.sonarqube up -d --pull always
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env.sonarqube ps
 ```
 
 ## Prerequisites
@@ -137,9 +161,21 @@ mvn sonar:sonar \
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc sonarqube logs -f       # View logs
+bc sonarqube logs -f sonarqube  # View specific service logs
+bc sonarqube restart       # Restart
+bc sonarqube down          # Stop
+bc sonarqube update        # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/sonarqube:latest --env-file .env.sonarqube"
 
 # View logs
 dc logs -f

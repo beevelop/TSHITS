@@ -10,13 +10,39 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Generate password secret and hash
 GRAYLOG_PASSWORD_SECRET=$(openssl rand -base64 32)
 GRAYLOG_ROOT_PASSWORD_SHA2=$(echo -n "Swordfish" | sha256sum | cut -d" " -f1)
 
 # 2. Create environment file
-cat > .env << EOF
+cat > .env.graylog << EOF
+COMPOSE_PROJECT_NAME=graylog
+SERVICE_DOMAIN=graylog.example.com
+GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
+GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
+EOF
+
+# 3. Deploy
+bc graylog up
+
+# 4. Check status
+bc graylog ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Generate password secret and hash
+GRAYLOG_PASSWORD_SECRET=$(openssl rand -base64 32)
+GRAYLOG_ROOT_PASSWORD_SHA2=$(echo -n "Swordfish" | sha256sum | cut -d" " -f1)
+
+# 2. Create environment file
+cat > .env.graylog << EOF
 COMPOSE_PROJECT_NAME=graylog
 SERVICE_DOMAIN=graylog.example.com
 GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
@@ -24,10 +50,10 @@ GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
 EOF
 
 # 3. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env.graylog up -d --pull always
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env.graylog ps
 ```
 
 ## Prerequisites
@@ -116,9 +142,20 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc graylog logs -f     # View logs
+bc graylog restart     # Restart
+bc graylog down        # Stop
+bc graylog update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/graylog:latest --env-file .env.graylog"
 
 # View logs
 dc logs -f

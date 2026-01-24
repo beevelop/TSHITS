@@ -10,9 +10,48 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.cabot << 'EOF'
+COMPOSE_PROJECT_NAME=cabot
+SERVICE_DOMAIN=cabot.example.com
+ADMIN_EMAIL=admin@example.com
+CABOT_FROM_EMAIL=cabot@example.com
+EMAIL_HOST=smtp.example.com
+EMAIL_USER=noreply@example.com
+EMAIL_PASSWORD=Swordfish
+EMAIL_PORT=465
+EMAIL_USE_TLS=1
+DJANGO_SECRET_KEY=your_secure_random_secret_key_here
+WWW_HTTP_HOST=cabot.example.com
+WWW_SCHEME=https
+CABOT_VERSION=0.11.16
+POSTGRES_TAG=17-alpine
+RABBITMQ_TAG=3.13-alpine
+CABOT_PLUGINS_ENABLED=cabot_alert_twilio,cabot_alert_email,cabot_alert_slack
+DJANGO_SETTINGS_MODULE=cabot.settings
+DATABASE_URL=postgres://postgres@postgres:5432/postgres
+CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+LOG_FILE=/dev/null
+HTTP_USER_AGENT=Cabot
+EOF
+
+# 2. Deploy
+bc cabot up
+
+# 3. Check status
+bc cabot ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.cabot << 'EOF'
 COMPOSE_PROJECT_NAME=cabot
 SERVICE_DOMAIN=cabot.example.com
 ADMIN_EMAIL=admin@example.com
@@ -37,10 +76,10 @@ HTTP_USER_AGENT=Cabot
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env.cabot up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env.cabot ps
 ```
 
 ## Prerequisites
@@ -161,9 +200,21 @@ See [Service Dependency Graph](../../docs/DEPENDENCIES.md) for details.
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc cabot logs -f        # View logs
+bc cabot logs -f cabot-web  # View specific service logs
+bc cabot restart        # Restart
+bc cabot down           # Stop
+bc cabot update         # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/cabot:latest --env-file .env.cabot"
 
 # View logs
 dc logs -f

@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.openvpn << 'EOF'
+COMPOSE_PROJECT_NAME=openvpn
+SERVICE_DOMAIN=vpn.example.com
+OPENVPN_VERSION=2.4
+EOF
+
+# 2. Deploy
+bc openvpn up
+
+# 3. Check status
+bc openvpn ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.openvpn << 'EOF'
 COMPOSE_PROJECT_NAME=openvpn
 SERVICE_DOMAIN=vpn.example.com
 OPENVPN_VERSION=2.4
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/openvpn:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/openvpn:latest --env-file .env.openvpn up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/openvpn:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/openvpn:latest --env-file .env.openvpn ps
 ```
 
 ## Prerequisites
@@ -120,9 +141,20 @@ dc --profile tcp up -d openvpn-tcp
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc openvpn logs -f     # View logs
+bc openvpn restart     # Restart
+bc openvpn down        # Stop
+bc openvpn update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/openvpn:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/openvpn:latest --env-file .env.openvpn"
 
 # View logs
 dc logs -f

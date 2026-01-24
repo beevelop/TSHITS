@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.registry << 'EOF'
+COMPOSE_PROJECT_NAME=registry
+SERVICE_DOMAIN=registry.example.com
+REGISTRY_VERSION=3.0.0
+EOF
+
+# 2. Deploy
+bc registry up
+
+# 3. Check status
+bc registry ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.registry << 'EOF'
 COMPOSE_PROJECT_NAME=registry
 SERVICE_DOMAIN=registry.example.com
 REGISTRY_VERSION=3.0.0
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/registry:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/registry:latest --env-file .env.registry up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/registry:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/registry:latest --env-file .env.registry ps
 ```
 
 ## Prerequisites
@@ -92,9 +113,20 @@ docker pull registry.example.com/alpine:latest
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc registry logs -f     # View logs
+bc registry restart     # Restart
+bc registry down        # Stop
+bc registry update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/registry:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/registry:latest --env-file .env.registry"
 
 # View logs
 dc logs -f

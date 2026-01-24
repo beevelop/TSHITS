@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.confluence << 'EOF'
+COMPOSE_PROJECT_NAME=confluence
+SERVICE_DOMAIN=confluence.example.com
+POSTGRES_PASS=Swordfish
+EOF
+
+# 2. Deploy
+bc confluence up
+
+# 3. Check status
+bc confluence ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.confluence << 'EOF'
 COMPOSE_PROJECT_NAME=confluence
 SERVICE_DOMAIN=confluence.example.com
 POSTGRES_PASS=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/confluence:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/confluence:latest --env-file .env.confluence up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/confluence:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/confluence:latest --env-file .env.confluence ps
 ```
 
 ## Prerequisites
@@ -117,9 +138,21 @@ These are configured automatically based on `SERVICE_DOMAIN`:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc confluence logs -f        # View logs
+bc confluence logs -f confluence  # View Confluence logs only
+bc confluence restart        # Restart
+bc confluence down           # Stop
+bc confluence update         # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/confluence:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/confluence:latest --env-file .env.confluence"
 
 # View logs
 dc logs -f

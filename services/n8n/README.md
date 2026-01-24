@@ -10,12 +10,38 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Generate encryption key (CRITICAL - save this securely!)
 openssl rand -base64 32
 
 # 2. Create environment file
-cat > .env << 'EOF'
+cat > .env.n8n << 'EOF'
+COMPOSE_PROJECT_NAME=n8n
+SERVICE_DOMAIN=n8n.example.com
+DB_PASS=your-secure-password
+N8N_ENCRYPTION_KEY=your-generated-key-from-step-1
+TZ=UTC
+EOF
+
+# 3. Deploy
+bc n8n up
+
+# 4. Check status
+bc n8n ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Generate encryption key (CRITICAL - save this securely!)
+openssl rand -base64 32
+
+# 2. Create environment file
+cat > .env.n8n << 'EOF'
 COMPOSE_PROJECT_NAME=n8n
 SERVICE_DOMAIN=n8n.example.com
 DB_PASS=your-secure-password
@@ -24,10 +50,10 @@ TZ=UTC
 EOF
 
 # 3. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/n8n:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/n8n:latest --env-file .env.n8n up -d --pull always
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/n8n:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/n8n:latest --env-file .env.n8n ps
 ```
 
 ## Prerequisites
@@ -111,9 +137,21 @@ The `N8N_ENCRYPTION_KEY` is **critical** for securing stored credentials:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc n8n logs -f        # View logs
+bc n8n logs -f n8n    # View n8n logs only
+bc n8n restart        # Restart
+bc n8n down           # Stop
+bc n8n update         # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/n8n:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/n8n:latest --env-file .env.n8n"
 
 # View logs
 dc logs -f

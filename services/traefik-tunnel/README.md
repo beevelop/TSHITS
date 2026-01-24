@@ -30,21 +30,44 @@ Internet -> Cloudflare Edge (TLS) -> cloudflared -> traefik:80 -> Services
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.traefik-tunnel << 'EOF'
 CF_TUNNEL_TOKEN=your_tunnel_token_here
 SERVICE_DOMAIN=app.example.com
 EOF
 
 # 2. Deploy Traefik (tunnel mode)
-docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env up -d
+bc traefik-tunnel up
 
 # 3. Deploy cloudflared
-docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env up -d
+bc cloudflared up
 
 # 4. Deploy your service (e.g., Metabase)
-docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env up -d
+bc metabase up
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.traefik-tunnel << 'EOF'
+CF_TUNNEL_TOKEN=your_tunnel_token_here
+SERVICE_DOMAIN=app.example.com
+EOF
+
+# 2. Deploy Traefik (tunnel mode)
+docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env.traefik-tunnel up -d --pull always
+
+# 3. Deploy cloudflared
+docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.traefik-tunnel up -d --pull always
+
+# 4. Deploy your service (e.g., Metabase)
+docker compose -f oci://ghcr.io/beevelop/metabase:latest --env-file .env.metabase up -d --pull always
 ```
 
 ## Prerequisites
@@ -106,9 +129,20 @@ labels:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc traefik-tunnel logs -f     # View logs
+bc traefik-tunnel restart     # Restart
+bc traefik-tunnel down        # Stop
+bc traefik-tunnel update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias
-alias dc="docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/traefik-tunnel:latest --env-file .env.traefik-tunnel"
 
 # View logs
 dc logs -f

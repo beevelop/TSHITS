@@ -78,18 +78,38 @@ Or configure per-service for granular Access policies:
 
 ### Step 3: Deploy cloudflared
 
+#### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.cloudflared << 'EOF'
+COMPOSE_PROJECT_NAME=cloudflared
+CF_TUNNEL_TOKEN=eyJhIjoiYWJjZGVmMTIzNDU2Nzg5MCIsInQiOiJ5b3VyLXR1bm5lbC1pZCIsInMiOiJ5b3VyLXNlY3JldCJ9
+EOF
+
+# 2. Deploy
+bc cloudflared up
+
+# 3. Check status
+bc cloudflared ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+#### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.cloudflared << 'EOF'
 COMPOSE_PROJECT_NAME=cloudflared
 CF_TUNNEL_TOKEN=eyJhIjoiYWJjZGVmMTIzNDU2Nzg5MCIsInQiOiJ5b3VyLXR1bm5lbC1pZCIsInMiOiJ5b3VyLXNlY3JldCJ9
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared ps
 ```
 
 ### Step 4: Enable Tunnel-Only Mode for Traefik (Optional)
@@ -195,9 +215,21 @@ Require authentication via IdP:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc cloudflared logs -f     # View logs
+bc cloudflared restart     # Restart
+bc cloudflared down        # Stop
+bc cloudflared update      # Pull and recreate
+bc cloudflared exec cloudflared cloudflared tunnel info  # Check tunnel status
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/cloudflared:latest --env-file .env.cloudflared"
 
 # View logs
 dc logs -f

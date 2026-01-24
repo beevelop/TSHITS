@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.phpmyadmin << 'EOF'
+COMPOSE_PROJECT_NAME=phpmyadmin
+SERVICE_DOMAIN=pma.example.com
+PMA_VERSION=5.2.3
+EOF
+
+# 2. Deploy
+bc phpmyadmin up
+
+# 3. Check status
+bc phpmyadmin ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.phpmyadmin << 'EOF'
 COMPOSE_PROJECT_NAME=phpmyadmin
 SERVICE_DOMAIN=pma.example.com
 PMA_VERSION=5.2.3
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/phpmyadmin:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/phpmyadmin:latest --env-file .env.phpmyadmin up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/phpmyadmin:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/phpmyadmin:latest --env-file .env.phpmyadmin ps
 ```
 
 ## Prerequisites
@@ -91,9 +112,20 @@ networks:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc phpmyadmin logs -f     # View logs
+bc phpmyadmin restart     # Restart
+bc phpmyadmin down        # Stop
+bc phpmyadmin update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/phpmyadmin:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/phpmyadmin:latest --env-file .env.phpmyadmin"
 
 # View logs
 dc logs -f

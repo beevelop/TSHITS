@@ -10,22 +10,46 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.redash << 'EOF'
+COMPOSE_PROJECT_NAME=redash
+SERVICE_DOMAIN=redash.example.com
+REDASH_COOKIE_SECRET=Swordfish32chars0000000000000000
+EOF
+
+# 2. Deploy
+bc redash up
+
+# 3. Initialize database (first time only)
+docker exec redash-server /app/bin/docker-entrypoint create_db
+
+# 4. Check status
+bc redash ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.redash << 'EOF'
 COMPOSE_PROJECT_NAME=redash
 SERVICE_DOMAIN=redash.example.com
 REDASH_COOKIE_SECRET=Swordfish32chars0000000000000000
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env.redash up -d --pull always
 
 # 3. Initialize database (first time only)
 docker exec redash-server /app/bin/docker-entrypoint create_db
 
 # 4. Check status
-docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env.redash ps
 ```
 
 ## Prerequisites
@@ -131,9 +155,21 @@ docker exec redash-server /app/bin/docker-entrypoint create_db
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc redash logs -f              # View logs
+bc redash logs -f redash-server  # View specific container logs
+bc redash restart              # Restart
+bc redash down                 # Stop
+bc redash update               # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/redash:latest --env-file .env.redash"
 
 # View logs
 dc logs -f

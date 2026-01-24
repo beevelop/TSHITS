@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.nexus << 'EOF'
+COMPOSE_PROJECT_NAME=nexus
+SERVICE_DOMAIN=nexus.example.com
+NEXUS_VERSION=3.88.0-alpine
+EOF
+
+# 2. Deploy
+bc nexus up
+
+# 3. Check status
+bc nexus ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.nexus << 'EOF'
 COMPOSE_PROJECT_NAME=nexus
 SERVICE_DOMAIN=nexus.example.com
 NEXUS_VERSION=3.88.0-alpine
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/nexus:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/nexus:latest --env-file .env.nexus up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/nexus:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/nexus:latest --env-file .env.nexus ps
 ```
 
 ## Prerequisites
@@ -85,9 +106,20 @@ Common repository configurations:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc nexus logs -f     # View logs
+bc nexus restart     # Restart
+bc nexus down        # Stop
+bc nexus update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/nexus:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/nexus:latest --env-file .env.nexus"
 
 # View logs
 dc logs -f

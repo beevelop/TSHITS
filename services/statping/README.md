@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.statping << 'EOF'
+COMPOSE_PROJECT_NAME=statping
+SERVICE_DOMAIN=status.example.com
+DB_PASS=Swordfish
+EOF
+
+# 2. Deploy
+bc statping up
+
+# 3. Check status
+bc statping ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.statping << 'EOF'
 COMPOSE_PROJECT_NAME=statping
 SERVICE_DOMAIN=status.example.com
 DB_PASS=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env.statping up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env.statping ps
 ```
 
 ## Prerequisites
@@ -89,9 +110,20 @@ On first launch, Statping will guide you through:
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc statping logs -f     # View logs
+bc statping restart     # Restart
+bc statping down        # Stop
+bc statping update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/statping:latest --env-file .env.statping"
 
 # View logs
 dc logs -f

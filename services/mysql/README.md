@@ -10,19 +10,40 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.mysql << 'EOF'
+COMPOSE_PROJECT_NAME=mysql
+MYSQL_VERSION=8.0
+MYSQL_ROOT_PASSWORD=Swordfish
+EOF
+
+# 2. Deploy
+bc mysql up
+
+# 3. Check status
+bc mysql ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.mysql << 'EOF'
 COMPOSE_PROJECT_NAME=mysql
 MYSQL_VERSION=8.0
 MYSQL_ROOT_PASSWORD=Swordfish
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/mysql:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/mysql:latest --env-file .env.mysql up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/mysql:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/mysql:latest --env-file .env.mysql ps
 ```
 
 ## Prerequisites
@@ -91,9 +112,20 @@ Place custom `.cnf` files in the `mysql_config` volume to customize MySQL settin
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc mysql logs -f     # View logs
+bc mysql restart     # Restart
+bc mysql down        # Stop
+bc mysql update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/mysql:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/mysql:latest --env-file .env.mysql"
 
 # View logs
 dc logs -f

@@ -10,18 +10,38 @@ This is a **Docker Compose OCI artifact**, not a traditional Docker image. It co
 
 ## Quick Start
 
+### Using bc CLI (Recommended)
+
 ```bash
 # 1. Create environment file
-cat > .env << 'EOF'
+cat > .env.dependency-track << 'EOF'
+COMPOSE_PROJECT_NAME=dependency-track
+SERVICE_DOMAIN=dtrack.example.com
+EOF
+
+# 2. Deploy
+bc dependency-track up
+
+# 3. Check status
+bc dependency-track ps
+```
+
+> **Note:** Install the bc CLI with: `curl -fsSL https://raw.githubusercontent.com/beevelop/beecompose/main/scripts/install.sh | sudo bash`
+
+### Manual Deployment
+
+```bash
+# 1. Create environment file
+cat > .env.dependency-track << 'EOF'
 COMPOSE_PROJECT_NAME=dependency-track
 SERVICE_DOMAIN=dtrack.example.com
 EOF
 
 # 2. Deploy from GHCR
-docker compose -f oci://ghcr.io/beevelop/dependency-track:latest --env-file .env up -d
+docker compose -f oci://ghcr.io/beevelop/dependency-track:latest --env-file .env.dependency-track up -d --pull always
 
 # 3. Check status
-docker compose -f oci://ghcr.io/beevelop/dependency-track:latest --env-file .env ps
+docker compose -f oci://ghcr.io/beevelop/dependency-track:latest --env-file .env.dependency-track ps
 ```
 
 ## Prerequisites
@@ -92,9 +112,20 @@ For larger deployments, consider using the separate API and frontend images with
 
 ## Common Operations
 
+### Using bc CLI
+
+```bash
+bc dependency-track logs -f     # View logs
+bc dependency-track restart     # Restart
+bc dependency-track down        # Stop
+bc dependency-track update      # Pull and recreate
+```
+
+### Using docker compose directly
+
 ```bash
 # Define alias for convenience
-alias dc="docker compose -f oci://ghcr.io/beevelop/dependency-track:latest --env-file .env"
+alias dc="docker compose -f oci://ghcr.io/beevelop/dependency-track:latest --env-file .env.dependency-track"
 
 # View logs
 dc logs -f
