@@ -3,6 +3,52 @@
 All notable changes to BeeCompose will be documented in this file.
 
 
+## [26.1.7](https://github.com/beevelop/BeeCompose/compare/v26.1.6...v26.1.7) (2026-01-24)
+
+### Features
+
+* **ci:** add bc CLI helper tests and update CI workflow ([7ec0600](https://github.com/beevelop/BeeCompose/commit/7ec0600a75dafd59dba64c18117eeefa99d43e9c))
+* **ci:** add service coverage check to CI pipeline and update documentation ([62c1733](https://github.com/beevelop/BeeCompose/commit/62c1733c689fe566865f4163bd19561e993e44f5))
+* **cloudflared:** add cloudflared service with configuration and documentation for tunnel-only mode ([1602885](https://github.com/beevelop/BeeCompose/commit/160288519eb696e37938dd66f6f6f4ebd743116d))
+* **n8n:** add n8n service with configuration and environment setup (closes [#7](https://github.com/beevelop/BeeCompose/issues/7)) ([9fc5a72](https://github.com/beevelop/BeeCompose/commit/9fc5a72ce2a92dce607d610210cf618ec19e6bdd))
+
+### Documentation
+
+* **AGENTS:** update agent manual to embed version tags in docker-compose.yml and clarify environment file usage ([c1af106](https://github.com/beevelop/BeeCompose/commit/c1af1066a60c8a1253ae91aa284989bba0c3db46))
+* **AGENTS:** update agent manual to reflect changes in environment file usage and service deployment instructions ([a1c5bb2](https://github.com/beevelop/BeeCompose/commit/a1c5bb224e28f31c3da9349606f5399af4c8d760))
+* **README:** add traefik-tunnel service and update networking modes section ([a65bf58](https://github.com/beevelop/BeeCompose/commit/a65bf58951a65719e27d16fc01ca5fe989e6f468))
+* **README:** update cloudflared and traefik documentation for tunnel-only mode ([76a49b4](https://github.com/beevelop/BeeCompose/commit/76a49b43a51e2c992692d21081479c940cb87e6a))
+* **services:** update README files to use environment-specific files for deployment and add bc CLI commands ([d791062](https://github.com/beevelop/BeeCompose/commit/d7910627a6f8553801b5b2f8813a650c7e218fb1))
+* **traefik:** add comment for Traefik v3 reverse proxy with Let's Encrypt ([4513934](https://github.com/beevelop/BeeCompose/commit/4513934245b8cc49140b5bccd862fd5eee8e942b))
+
+### Maintenance
+
+* **cloudflared:** update command and healthcheck for metrics reporting ([ab42417](https://github.com/beevelop/BeeCompose/commit/ab42417977e91c4208e7c571592cef803ecbb8fd))
+* **n8n:** update n8n image version to 2.4.6 ([f37b5bb](https://github.com/beevelop/BeeCompose/commit/f37b5bb8851ce1eeafdf975c21a3ced11a2ad87c))
+* **publish-oci:** update publishing logic to ensure all services are published consistently ([138dfca](https://github.com/beevelop/BeeCompose/commit/138dfcad35bb4aa5e4fede8179373f5e23a13306))
+* remove references to bee helper and update CI skip reasons ([78f255b](https://github.com/beevelop/BeeCompose/commit/78f255b325ba830336a71943f1c2ec0065e5e280))
+* **services:** correct external network definition in docker-compose ([d489e63](https://github.com/beevelop/BeeCompose/commit/d489e63d9e88548eaeb4eb69c29ce9a123e43d09))
+* **services:** remove obsolete version field from docker-compose files ([f6a1a4f](https://github.com/beevelop/BeeCompose/commit/f6a1a4f490054d487411a88cbe28e3eddde1cffb))
+* **services:** remove version field from docker-compose tunnel configuration ([60d20a5](https://github.com/beevelop/BeeCompose/commit/60d20a5ce06fa565ea55de409b1a3fd696ba3901))
+* **services:** update docker-compose configurations and remove unused environment files ([7689305](https://github.com/beevelop/BeeCompose/commit/7689305a27eb9aab1b71db7cdfe47820123785a0))
+* **services:** update network configuration in docker-compose for traefik service ([2ea8a22](https://github.com/beevelop/BeeCompose/commit/2ea8a22a87f2e58928fe5b715021b35e618936a5))
+* **traefik:** add configuration files for tunnel mode and update documentation ([cc3122c](https://github.com/beevelop/BeeCompose/commit/cc3122c81a637459009ac4027b6e894318cdd33e))
+* **traefik:** enhance port configuration options and update documentation ([136c770](https://github.com/beevelop/BeeCompose/commit/136c770cb3cc2202f6386915cb8c084862170089))
+* **traefik:** remove logging volume and update access log configuration ([b9e358e](https://github.com/beevelop/BeeCompose/commit/b9e358e733f8e93ffbf2ace4eab23884887b7487))
+* **traefik:** remove tls labels from service configurations and update documentation ([688bd64](https://github.com/beevelop/BeeCompose/commit/688bd64109cedace28d75b8208058bf77af4ac1c))
+* **traefik:** update configuration for exposed and tunnel modes, remove obsolete files ([0509508](https://github.com/beevelop/BeeCompose/commit/0509508b2304428d43fd523d313fa23f135a56da))
+
+### CI/CD
+
+* **ci-cd:** skip network creation for traefik services in CI pipeline ([1f1702d](https://github.com/beevelop/BeeCompose/commit/1f1702de7485d4a631c5bafd5b4ddf533be9ca01))
+* **cloudflared:** add .ci-skip file to skip CI testing for service requiring Cloudflare Tunnel token ([2e75291](https://github.com/beevelop/BeeCompose/commit/2e7529127ee5c1d7d6babcee6948dd7c48cb2b73))
+* **publish-oci:** add workaround for bind mount prompts in docker compose publish ([7a84502](https://github.com/beevelop/BeeCompose/commit/7a8450214cf0229acdaf4a1a57397e5041d0da37))
+* **publish-oci:** refine version determination logic and update comments ([fd1c846](https://github.com/beevelop/BeeCompose/commit/fd1c846c3a5b04bc75d04260b8102bbc0e55fc38))
+
+### Styling
+
+* **bc:** fix string quoting in trap command and update example delimiter ([65aae56](https://github.com/beevelop/BeeCompose/commit/65aae56dd821097c6f5b3bc156d8bb48ccd8b5be))
+
 ## [26.1.6](https://github.com/beevelop/BeeCompose/compare/v26.1.5...v26.1.6) (2026-01-22)
 
 ### Documentation
